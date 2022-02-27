@@ -5,6 +5,7 @@ import ir.datatype.IRType;
 import ir.operand.IRConstantOperand;
 import ir.operand.IROperand;
 import ir.operand.IRVariableOperand;
+import mips.*;
 
 import java.io.PrintStream;
 import java.util.*;
@@ -14,7 +15,7 @@ public class Backend {
         // Parse the IR file
         IRReader irReader = new IRReader();
         IRProgram program = irReader.parseIRFile(args[0]);
-
+        MIPSProgram mips = IRToMIPSTranslator.translate(program);
 
 
     }

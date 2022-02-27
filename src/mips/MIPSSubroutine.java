@@ -1,7 +1,8 @@
 package mips;
 
 import mips.datatype.MIPSType;
-import mips.operand.MIPSVariableOperand;
+// import mips.operand.MIPSVariableOperand;
+import mips.operand.MIPSRegisterOperand;
 
 import java.util.List;
 
@@ -13,14 +14,16 @@ public class MIPSSubroutine {
 
     //I think it might be a good idea to convert parameters and variables into a list of registers?  Or a mapping of variables to registers?
     //Like MIPSRegisterOperand?
-    public List<MIPSVariableOperand> parameters;
+    public List<MIPSRegisterOperand> parameters;
 
-    public List<MIPSVariableOperand> variables;
+    public List<MIPSRegisterOperand> variables;
 
     public List<MIPSInstruction> instructions;
 
+    public MIPSSubroutine(){}
+
     public MIPSSubroutine(String name, MIPSType returnType,
-                      List<MIPSVariableOperand> parameters, List<MIPSVariableOperand> variables,
+                      List<MIPSRegisterOperand> parameters, List<MIPSRegisterOperand> variables,
                       List<MIPSInstruction> instructions) {
         this.name = name;
         this.returnType = returnType;
