@@ -44,9 +44,6 @@ public class IRToMIPSTranslator {
             for (IRVariableOperand ivo : func.variables) {
                 //todo: Handle arrays that are declared here by allocating space on the stack.
 
-                mipsSub.variables.add(new MIPSRegisterOperand(regCount, ivo.getName(), null, true));
-                regMap.put(ivo.getName(), regCount);
-                regCount++;
             }
 
 
