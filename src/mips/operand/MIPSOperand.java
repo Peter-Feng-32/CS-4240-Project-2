@@ -17,6 +17,10 @@ public abstract class MIPSOperand {
         return parent;
     }
 
+    public String getValue() {
+        return value;
+    }
+
     @Override
     public String toString() {
         return value;
