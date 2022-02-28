@@ -22,7 +22,9 @@ public class IRToMIPSTranslator {
             MIPSSubroutine mipsSub = new MIPSSubroutine();
 
             mipsSub.name = func.name;
-
+            //Map array to offset from frame pointer
+            //Keep running frame pointer offset
+            //
 
             //Q? Are there other mips types (arrays?) i think we can just keep everything as words, but not sure
 
@@ -130,7 +132,7 @@ public class IRToMIPSTranslator {
                  * ADD t, a, b
                  * Case a == variable, b == variable -> ADD t, a, b
                  * Case a == variable, b == constant, b fits immediate value size(16 bits) -> ADDI, t, a, b
-                 * Case a == variable, b == constant, b doesn't fit immediate value size -> LI temp, b; ADD, t, a, b
+                 * Case a == variable, b == constant, b doesn't fit immediate value size -> LUI temp, b>>16, (ORI b << 16) >> 16; ADD, t, a, b
                  * Case a == constant, b == constant -> LI t, a+b
                  * */
                  if (mipsI.operands[2] instanceof MIPSConstantOperand || mipsI.operands[1] instanceof MIPSConstantOperand) {
@@ -147,7 +149,7 @@ public class IRToMIPSTranslator {
                   * SUB t, a, b
                   * Case a == variable, b == variable -> SUB t, a, b
                   * Case a == variable, b == constant, b fits immediate value size(16 bits) -> SUBI, t, a, b
-                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LI temp, b; SUB, t, a, b
+                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LUI temp, b>>16, (ORI b << 16) >> 16; SUB, t, a, b
                   * Case a == constant, b == constant -> LI t, a-b
                   * */
 
@@ -175,7 +177,7 @@ public class IRToMIPSTranslator {
                   * DIV t, a, b
                   * Case a == variable, b == variable -> DIV t, a, b
                   * Case a == variable, b == constant, b fits immediate value size(16 bits) -> DIVI, t, a, b
-                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LI temp, b; DIV, t, a, b
+                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LUI temp, b>>16, (ORI b << 16) >> 16; DIV, t, a, b
                   * Case a == constant, b == constant -> LI t, a/b
                   * */
 
@@ -189,7 +191,7 @@ public class IRToMIPSTranslator {
                   * AND t, a, b
                   * Case a == variable, b == variable -> AND t, a, b
                   * Case a == variable, b == constant, b fits immediate value size(16 bits) -> ANDI, t, a, b
-                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LI temp, b; AND, t, a, b
+                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LUI temp, b>>16, (ORI b << 16) >> 16; AND, t, a, b
                   * Case a == constant, b == constant -> LI t, a&b
                   * */
 
@@ -208,7 +210,7 @@ public class IRToMIPSTranslator {
                   * OR t, a, b
                   * Case a == variable, b == variable -> OR t, a, b
                   * Case a == variable, b == constant, b fits immediate value size(16 bits) -> ORI, t, a, b
-                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LI temp, b; OR, t, a, b
+                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LUI temp, b>>16, (ORI b << 16) >> 16; OR, t, a, b
                   * Case a == constant, b == constant -> LI t, a|b
                   * */
 
@@ -310,6 +312,8 @@ public class IRToMIPSTranslator {
                  /*
                  todo: Implement once we figure out how the stack is structured.
                   */
+                 //Translate intrinsic functions from IR
+                 //Case analysis.
                  mipsI.opCode = MIPSInstruction.OpCode.JAL;
                  newInstructions.add(mipsI);
 
@@ -318,6 +322,9 @@ public class IRToMIPSTranslator {
                  /*
                  todo: Implement once we figure out how the stack is structured.
                   */
+                 //Translate intrinsic functions from IR
+                 //Case analysis.
+
                  mipsI.opCode = MIPSInstruction.OpCode.JAL;
                  newInstructions.add(mipsI);
                  break;
@@ -353,9 +360,8 @@ public class IRToMIPSTranslator {
                  break;
              case LABEL:
                  //Directly corresponds.  Label -> Label should be fine.
-                mipsI.opCode = MIPSInstruction.OpCode.LABEL;
-                newInstructions.add(mipsI);
-
+                 mipsI.opCode = MIPSInstruction.OpCode.LABEL;
+                 newInstructions.add(mipsI);
                  break;
         }
         // assign with two operands -> LI
