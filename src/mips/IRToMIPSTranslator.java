@@ -26,29 +26,32 @@ public class IRToMIPSTranslator {
             //Keep running frame pointer offset
             //
 
-            //Q? Are there other mips types (arrays?) i think we can just keep everything as words, but not sure
-
-
             mipsSub.returnType = MIPSWordType.get();
             //dynamically assign variables new registers
             HashMap<String, Integer> regMap = new HashMap<>();
             //start assigning registers for values - will need to load these from stack in regAlloc
-            int regCount = 1;
+            WrapInt regCount = new WrapInt();
             mipsSub.parameters = new ArrayList<MIPSRegisterOperand>();
             for (IRVariableOperand ivo : func.parameters) {
-                mipsSub.parameters.add(new MIPSRegisterOperand(regCount, ivo.getName(), null, true));
-                regMap.put(ivo.getName(), regCount);
-                regCount++;
+                mipsSub.parameters.add(new MIPSRegisterOperand(regCount.val, ivo.getName(), null, true));
+                regMap.put(ivo.getName(), regCount.val);
+                regCount.val++;
             }
-            mipsSub.variables = new ArrayList<MIPSRegisterOperand>();
-            for (IRVariableOperand ivo : func.variables) {
-                //todo: Handle arrays that are declared here by allocating space on the stack.
-
-            }
+            // mipsSub.variables = new ArrayList<MIPSRegisterOperand>();
+            // for (IRVariableOperand ivo : func.variables) {
+            //     //todo: Handle arrays that are declared here by allocating space on the stack.
+            //
+            // }
 
 
             mipsSub.instructions = new ArrayList<MIPSInstruction>();
-            //todo: Initialize Subroutine with a label?
+            // Initialize Subroutine with a label
+            MIPSInstruction lbl = new MIPSInstruction();
+            MIPSOperand t_arr[] = new MIPSOperand[1];
+            t_arr[0] = new MIPSLabelOperand(MIPSWordType.get(), mipsSub.name, lbl);
+            lbl.operands = t_arr;
+            lbl.opCode = MIPSInstruction.OpCode.LABEL;
+            mipsSub.instructions.add(lbl);
             //Calling convention for callee goes here...
 
 
@@ -57,17 +60,18 @@ public class IRToMIPSTranslator {
                 for(MIPSInstruction mipsi : newInstructions) {
                     mipsSub.instructions.add(mipsi);
                 }
-                regCount++;
-
-                // note no guarantee register numbers are continuous bc incremented on every instruction
             }
             mipsProgram.subroutines.add(mipsSub);
         }
         return mipsProgram;
     }
-    private static ArrayList<MIPSInstruction> translateInstruction(IRInstruction iri, int regCount, HashMap<String, Integer> regMap) throws Exception {
+    private static ArrayList<MIPSInstruction> translateInstruction(IRInstruction iri, WrapInt regCount, HashMap<String, Integer> regMap) throws Exception {
         ArrayList<MIPSInstruction> newInstructions = new ArrayList<>();
         MIPSInstruction mipsI = new MIPSInstruction();
+
+        //All of the below stuff will be removed and replaced with specific code within the switch statement per case.
+
+        /**
         mipsI.operands = new MIPSOperand[iri.operands.length];
         for (int i = 0; i < iri.operands.length; i++) {
             IROperand ivo = iri.operands[i];
@@ -82,6 +86,8 @@ public class IRToMIPSTranslator {
                 mipsI.operands[i] = new MIPSRegisterOperand(regMap.get(s), s, null, true);
             }
         }
+        **/
+
         //todo: question: What if we need multiple temp registers to implement an instruction?
         //todo: restructure so register count is assigned when registers are actually allocated, not just 1 per IR instruction.  Java pass regCount by reference using wrapper.
 
@@ -132,14 +138,93 @@ public class IRToMIPSTranslator {
                  * Case a == variable, b == constant, b doesn't fit immediate value size -> LUI temp, b>>16, (ORI b << 16) >> 16; ADD, t, a, b
                  * Case a == constant, b == constant -> LI t, a+b
                  * */
-                 if (mipsI.operands[2] instanceof MIPSConstantOperand || mipsI.operands[1] instanceof MIPSConstantOperand) {
-                     mipsI.opCode = MIPSInstruction.OpCode.ADDI;
-                 } else {
-                     mipsI.opCode = MIPSInstruction.OpCode.ADD;
+                 String name = ((IRVariableOperand) iri.operands[0]).getName();
+                 // Case Both Constant
+                 if (iri.operands[1] instanceof IRConstantOperand && iri.operands[2] instanceof IRConstantOperand) {
+                     //opcode
+                     mipsI.opCode = MIPSInstruction.OpCode.LI;
+                     //numOperands
+                     mipsI.operands = new MIPSOperand[2];
+                     //Declare Constant Operand
+                     String addVal = "" + (Integer.parseInt(iri.operands[1].toString()) + Integer.parseInt(iri.operands[2].toString()));
+                     dclrConstantOp(mipsI, addVal, 1);
+                     //Dest Register
+                     newDestReg(mipsI, regCount, regMap, name);
                  }
-                 newDestReg(mipsI, regCount, regMap);
+                 // Supercase One Constant
+                 else if (iri.operands[2] instanceof IRConstantOperand || iri.operands[1] instanceof IRConstantOperand) {
+                     // constant is always second
+                     if (iri.operands[1] instanceof IRConstantOperand) {
+                         IROperand temp = iri.operands[1];
+                         iri.operands[1] = iri.operands[2];
+                         iri.operands[2] = temp;
+                     }
+                     int b = Integer.parseInt(iri.operands[2].toString());
+                     // case b doesn't fit in 16 bits (LUI, ORI, ADD)
+                     if (b >>> 16 != 0) {
+                         //opcode
+                         mipsI.opCode = MIPSInstruction.OpCode.LUI;
+                         //numOperands
+                         mipsI.operands = new MIPSOperand[2];
+                         //Declare Constant Operand
+                         String val = "" + (b >>> 16);
+                         dclrConstantOp(mipsI, val, 1);
+                         //Dest Register
+                         newDestReg(mipsI, regCount, regMap, name);
+                         //add inst
+                         newInstructions.add(mipsI);
+                         // Move to second new Instruction
+                         mipsI = new MIPSInstruction();
+                         //opcode
+                         mipsI.opCode = MIPSInstruction.OpCode.ORI;
+                         //numOperands
+                         mipsI.operands = new MIPSOperand[3];
+                         //Declare 1st Register Operand
+                         dclrRegOp(mipsI, "", 1, regMap.get(name)); //the name (2nd arg in call) doesn't matter, right? I just ignore it here
+                         //Declare 2nd Constant Operand
+                         val = "" + (b & ((1 << 16) - 1));
+                         dclrConstantOp(mipsI, val, 2);
+                         //Dest Register
+                         newDestReg(mipsI, regCount, regMap, name);
+                         //add inst
+                         newInstructions.add(mipsI);
+                         // Move to actual add instruction
+                         mipsI = new MIPSInstruction();
+                         //opcode
+                         mipsI.opCode = MIPSInstruction.OpCode.ADD;
+                         //numOperands
+                         mipsI.operands = new MIPSOperand[3];
+                         //Declare 1st Register Operand
+                         dclrRegOp(mipsI, "", 1, regMap.get(name));
+                         //Declare 2nd Register Operand
+                         String a = iri.operands[1].toString();
+                         dclrRegOp(mipsI, "", 2, regMap.get(a));
+                         //Dest Register
+                         newDestReg(mipsI, regCount, regMap, name);
+                     }
+                     // case b fits in 16 bits
+                     else {
+                         //opcode
+                         mipsI.opCode = MIPSInstruction.OpCode.ADDI;
+                         //numOperands
+                         mipsI.operands = new MIPSOperand[3];
+                         //Declare 1st Register Operand
+                         dclrRegOp(mipsI, "", 1, regMap.get(iri.operands[1].toString()));
+                         //Declare 2nd Constant Operand
+                         dclrConstantOp(mipsI, iri.operands[2].toString(), 2);
+                         //Dest Register
+                         newDestReg(mipsI, regCount, regMap, name);
+                     }
+                 }
+                 // case both operands are variables (add)
+                 else {
+                     mipsI.opCode = MIPSInstruction.OpCode.ADD;
+                     mipsI.operands = new MIPSOperand[3];
+                     dclrRegOp(mipsI, "", 1, regMap.get(iri.operands[1].toString()));
+                     dclrRegOp(mipsI, "", 2, regMap.get(iri.operands[2].toString()));
+                     newDestReg(mipsI, regCount, regMap, name);
+                 }
                  newInstructions.add(mipsI);
-
                  break;
              case SUB:
                  /* todo:
@@ -361,30 +446,20 @@ public class IRToMIPSTranslator {
                  newInstructions.add(mipsI);
                  break;
         }
-        // assign with two operands -> LI
-        // assign with three operands -> loop of sw
-        // ADD with constant -> ADDI
-        // ADD with two vars -> ADD
-        // SUB with constant -> SUBI
-        // SUB with two vars -> SUB
-        // MULT -> MULT
-        // DIV -> DIV
-        // AND with constant -> ANDI
-        // AND with two vars -> AND
-        // OR with constant -> ORI
-        // OR with two vars -> OR
-        // BRANCHES directly correspond
-        // GOTO -> B
-        // return -> jr $ra
-        // call -> jal
-        // callr -> jal
-        // ARRAY_STORE -> sw
-        // ARRAY_LOAD -> lw
-        // LABEL -> LABEL
         return newInstructions;
     }
-    private static void newDestReg(MIPSInstruction m, int rc, HashMap<String, Integer> rm) {
-        ((MIPSRegisterOperand) m.operands[0]).regNum = rc;
-        rm.put(((MIPSRegisterOperand) m.operands[0]).getValueString(), rc);
+    //creates a new destination register operand
+    private static void newDestReg(MIPSInstruction m, WrapInt rc, HashMap<String, Integer> rm, String name) {
+        m.operands[0] = new MIPSRegisterOperand(rc.val, name, null, true);
+        rm.put(name, rc.val);
+        rc.val++;
+    }
+    //creates a new constant operand
+    private static void dclrConstantOp(MIPSInstruction m, String value, int opNum) {
+        m.operands[opNum] = new MIPSConstantOperand(MIPSWordType.get(), value, m);
+    }
+    //creates a new register operand
+    private static void dclrRegOp(MIPSInstruction m, String value, int opNum, int regNum) {
+        m.operands[opNum] = new MIPSRegisterOperand(regNum, value, m, true);
     }
 }

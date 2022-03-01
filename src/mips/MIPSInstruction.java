@@ -5,7 +5,7 @@ import mips.operand.MIPSOperand;
 public class MIPSInstruction {
 
     public enum OpCode {
-        LI,
+        LI, LUI,
         ADD, ADDI, SUB, SUBI, MULT, MULO, DIV, AND, ANDI, OR, ORI,
         B,
         BEQ, BNE, BLT, BGT, BLE, BGE,

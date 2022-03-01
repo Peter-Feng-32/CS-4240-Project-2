@@ -23,7 +23,10 @@ src/mips/operand/MIPSRegisterOperand.java
 src/mips/operand/MIPSLabelOperand.java
 src/mips/MIPSSubroutine.java
 src/mips/datatype/MIPSWordType.java
+src/mips/datatype/WrapInt.java
 src/mips/datatype/MIPSType.java
+src/mips/cfg/CFG.java
+src/mips/cfg/BasicBlock.java
 src/mips/MIPSInstruction.java
 src/mips/MIPSPrinter.java
 src/mips/MIPSProgram.java
