@@ -15,57 +15,190 @@ import ir.operand.*;
 // - convert each instruction to MIPS individually
 // Q? - add calling convention before and after function calls? - This should be done in register allocation, after we know num of registers to store?
 
+
 public class IRToMIPSTranslator {
     public static MIPSProgram translate(IRProgram irp) throws Exception {
         MIPSProgram mipsProgram = new MIPSProgram();
         for (IRFunction func : irp.functions) {
+
+            /*Add instructions to perform calling convention
+            Preserved registers: $s0 - $s7, $sp, $ra - saved by function called
+            Unpreserved registers: $t0 - $t9, $a0 - $a3, $v0 - $v1 - saved by caller
+            When entering a function:
+            1) Save previous frame pointer $fp
+            2) Set current frame pointer $fp to point to the top of the stack
+            3) Save $ra
+            4) Save $s0 - $s7
+
+
+            When calling a function:
+            1) Save $a0 - $a3
+            2) Save $t0 - $t9
+            3) Save $v0
+            4) Push arguments in order(ie. the earliest parameter will be "lowest" on the stack (have the highest address).
+            5) Call function
+
+            6) If Callr Load $v0 into a temporary register
+            7) Load $v0
+            8) Load $t0 - $t9
+            9) Load $a0 - $a3
+            10) Pop from stack
+
+
+            Teardown:
+            1) Pop $s0 - $s7
+            2) Load $ra
+            3) Restore $sp ($sp = $fp + 4)
+            4) Restore caller's $fp
+            5) Return
+
+
+            */
+
+            /*
+            todo:
+            Procedure:
+            Enter function - Done
+            Assign a virtual register for every parameter - Done
+            Assign a virtual register for every variables - Done
+            Initialize subroutine with a label - Done
+            Add instructions to perform calling convention procedure when entering the function - Done
+            Add instructions to load parameters into their virtual registers - Done
+            Create an array to frame pointer offset table for every array - Done
+                In instruction translation of array ops, load the address of the array into the virtual register for the array variable by adding the offset to the frame pointer
+                Then add the offset and perform the operation
+            Add instructions to perform teardown
+            Do Instruction Translation
+             */
+
             MIPSSubroutine mipsSub = new MIPSSubroutine();
-
             mipsSub.name = func.name;
-            //Map array to offset from frame pointer
-            //Keep running frame pointer offset
-            //
+            mipsSub.returnType = (func.returnType == null) ? null : MIPSWordType.get();
+            mipsSub.instructions = new ArrayList<MIPSInstruction>();
 
-            mipsSub.returnType = MIPSWordType.get();
-            //dynamically assign variables new registers
-            HashMap<String, Integer> regMap = new HashMap<>();
-            //start assigning registers for values - will need to load these from stack in regAlloc
-            WrapInt regCount = new WrapInt();
+            HashMap<String, Integer> varToRegMap = new HashMap<>();
+            HashMap<String, Integer> arrayToFPOffsetMap = new HashMap<>();
+            int regCount = 0;
+
+            //Assign a virtual register for every parameter.
             mipsSub.parameters = new ArrayList<MIPSRegisterOperand>();
             for (IRVariableOperand ivo : func.parameters) {
-                mipsSub.parameters.add(new MIPSRegisterOperand(regCount.val, ivo.getName(), null, true));
-                regMap.put(ivo.getName(), regCount.val);
-                regCount.val++;
+                mipsSub.parameters.add(new MIPSRegisterOperand(regCount, ivo.getName(), true));
+                varToRegMap.put(ivo.getName(), regCount);
+                regCount++;
             }
-            // mipsSub.variables = new ArrayList<MIPSRegisterOperand>();
-            // for (IRVariableOperand ivo : func.variables) {
-            //     //todo: Handle arrays that are declared here by allocating space on the stack.
-            //
-            // }
 
+            //Add a virtual register for every variable
+            for(IRVariableOperand ivo: func.variables) {
+                varToRegMap.put(ivo.getName(), regCount);
+                regCount++;
+            }
 
-            mipsSub.instructions = new ArrayList<MIPSInstruction>();
             // Initialize Subroutine with a label
             MIPSInstruction lbl = new MIPSInstruction();
             MIPSOperand t_arr[] = new MIPSOperand[1];
-            t_arr[0] = new MIPSLabelOperand(MIPSWordType.get(), mipsSub.name, lbl);
+            t_arr[0] = new MIPSLabelOperand(MIPSWordType.get(), mipsSub.name);
             lbl.operands = t_arr;
             lbl.opCode = MIPSInstruction.OpCode.LABEL;
             mipsSub.instructions.add(lbl);
-            //Calling convention for callee goes here...
+
+            //Note: to store something, push $sp by -4 and then store the word at the new $sp.
+
+            /*
+            Add instructions to perform calling convention
+            Preserved registers: $s0 - $s7, $sp, $ra - saved by function called
+            Unpreserved registers: $t0 - $t9, $a0 - $a3, $v0 - $v1 - saved by caller
+            When entering a function:
+            1) Save previous frame pointer $fp
+            2) Set current frame pointer $fp to point to the top of the stack
+            3) Save $ra
+            4) Save $s0 - $s7
+
+            */
+
+            //Add instructions to perform calling convention
+            //1) Save previous frame pointer $fp
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$fp", false), new MIPSConstantOperand("-4", -4), new MIPSRegisterOperand(-1, "$sp", false)}));
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("-4", -4)}));
+            //2) Set current frame pointer $fp to point to the top of the stack
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "fp", false), new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("0", 0)}));
+            //3) Save $ra
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$ra", false), new MIPSConstantOperand("-4", -4), new MIPSRegisterOperand(-1, "$sp", false)}));
+            //4) Save $s0 - $s7
+            for(int i = 0; i <= 7; i++) {
+                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW,
+                        new MIPSOperand[]{new MIPSRegisterOperand(-1, "$s" + i, false), new MIPSConstantOperand("" + (-8 + -4 * i), (-8 + -4 * i)), new MIPSRegisterOperand(-1, "$sp", false)}));
+            }
+            //Set stack pointer to correct position
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("-36", -36)}));
 
 
+            //Add instructions to load parameters into virtual registers.
+            for (int i = 0; i < func.parameters.size(); i++) {
+                //Get correct virtual register number
+                IRVariableOperand ivo = func.parameters.get(i);
+                int vRegNum = varToRegMap.get(ivo.getName());
+                int K = func.parameters.size();
+                //Add instruction to load
+                //K total parameters
+                //LW $vi, 4 + (K - 1 - i) * 4, $fp
+                int paramFPOffset = 4 + (K-1 - i) * 4;
+                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
+                        new MIPSOperand[]{new MIPSRegisterOperand(vRegNum, "$vir" + vRegNum, true), new MIPSConstantOperand("" + paramFPOffset, paramFPOffset), new MIPSRegisterOperand(-1, "$fp", false)}));
+            }
+
+            //Create an array to frame pointer offset table for every array.
+            int fpRunningOffset = -36; //offset by $ra and $s0 - $s7
+
+            for(IRVariableOperand ivo: func.variables) {
+                if(ivo.type instanceof IRArrayType) {
+                    int arraySize = ((IRArrayType) ivo.type).getSize();
+                    fpRunningOffset -= (arraySize * 4);
+                    //Allocate space in stack
+                    mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI,
+                            new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("" + (-4*arraySize), (-4*arraySize))}));
+                    arrayToFPOffsetMap.put(ivo.getName(), fpRunningOffset);
+                }
+            }
+
+            //Do Instruction Translation
             for (IRInstruction iri : func.instructions) {
-                ArrayList<MIPSInstruction> newInstructions = translateInstruction(iri, regCount, regMap);
+                ArrayList<MIPSInstruction> newInstructions = translateInstruction(iri, varToRegMap);
                 for(MIPSInstruction mipsi : newInstructions) {
                     mipsSub.instructions.add(mipsi);
                 }
             }
+
+            //Add instructions to perform Teardown
+            //1) Load $s0 - $s7
+            for(int i = 0; i <= 7; i++) {
+                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
+                        new MIPSOperand[]{new MIPSRegisterOperand(-1, "$s" + i, false), new MIPSConstantOperand("" + (-8 + -4 * i), (-8 + -4 * i)), new MIPSRegisterOperand(-1, "$fp", false)}));
+            }
+            //2) Load $ra (LW $ra, -4, $fp)
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$ra", false), new MIPSConstantOperand("" + -4, -4), new MIPSRegisterOperand(-1, "$fp", false)}));
+            //3) Restore $sp ($sp = $fp + 4)
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("" + 4, 4), new MIPSRegisterOperand(-1, "$fp", false)}));
+            //4) Restore caller's $fp
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$fp", false), new MIPSConstantOperand("" + 0, 0), new MIPSRegisterOperand(-1, "$fp", false)}));
+            //5) Return
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.JR,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$ra", false)}));
+
+            //Done
             mipsProgram.subroutines.add(mipsSub);
         }
         return mipsProgram;
     }
-    private static ArrayList<MIPSInstruction> translateInstruction(IRInstruction iri, WrapInt regCount, HashMap<String, Integer> regMap) throws Exception {
+    private static ArrayList<MIPSInstruction> translateInstruction(IRInstruction iri, HashMap<String, Integer> regMap) throws Exception {
         ArrayList<MIPSInstruction> newInstructions = new ArrayList<>();
         MIPSInstruction mipsI = new MIPSInstruction();
 
@@ -103,6 +236,7 @@ public class IRToMIPSTranslator {
 
                  if(iri.operands.length == 2 && iri.operands[1] instanceof IRConstantOperand){
                      mipsI.opCode = MIPSInstruction.OpCode.LI;
+
                      newDestReg(mipsI, regCount, regMap);
                      newInstructions.add(mipsI);
                  }
@@ -235,14 +369,10 @@ public class IRToMIPSTranslator {
                   * Case a == constant, b == constant -> LI t, a-b
                   * */
 
-
-                 if (mipsI.operands[2] instanceof MIPSConstantOperand || mipsI.operands[1] instanceof MIPSConstantOperand) {
-                     mipsI.opCode = MIPSInstruction.OpCode.SUBI;
-                 } else {
-                     mipsI.opCode = MIPSInstruction.OpCode.SUB;
-                 }
-                 newDestReg(mipsI, regCount, regMap);
-                 newInstructions.add(mipsI);
+                 // Case a == variable, b == variable
+                 mipsI.opCode = MIPSInstruction.OpCode.SUB;
+                 mipsI.operands = new MIPSOperand[3];
+                 dclrRegOp(mipsI, "", 1, regMap)
 
                  break;
              case MULT:

@@ -25,14 +25,13 @@ public class MIPSInstruction {
 
     public MIPSOperand[] operands;
 
-    public int mipsLineNumber;
 
     public MIPSInstruction() {}
 
-    public MIPSInstruction(OpCode opCode, MIPSOperand[] operands, int mipsLineNumber) {
+    public MIPSInstruction(OpCode opCode, MIPSOperand[] operands) {
         this.opCode = opCode;
         this.operands = operands;
-        this.mipsLineNumber = mipsLineNumber;
+
     }
 
 }

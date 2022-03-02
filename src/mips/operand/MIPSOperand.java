@@ -4,26 +4,25 @@ import mips.MIPSInstruction;
 
 public abstract class MIPSOperand {
 
-    protected String value;
+    protected String name;
 
     protected MIPSInstruction parent;
 
-    public MIPSOperand(String value, MIPSInstruction parent) {
-        this.value = value;
-        this.parent = parent;
+    public MIPSOperand(String name) {
+        this.name = name;
     }
 
     public MIPSInstruction getParent() {
         return parent;
     }
 
-    public String getValue() {
-        return value;
+    public String getName() {
+        return name;
     }
 
     @Override
     public String toString() {
-        return value;
+        return name;
     }
 
 }

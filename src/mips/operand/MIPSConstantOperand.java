@@ -5,14 +5,14 @@ import mips.datatype.MIPSType;
 
 public class MIPSConstantOperand extends MIPSOperand {
 
-    public MIPSType type;
+    private int value;
 
-    public MIPSConstantOperand(MIPSType type, String value, MIPSInstruction parent) {
-        super(value, parent);
-        this.type = type;
+    public MIPSConstantOperand(String name, int value) {
+        super(name);
+        this.value = value;
     }
 
-    public String getValueString() {
+    public int getValueString() {
         return value;
     }
 }

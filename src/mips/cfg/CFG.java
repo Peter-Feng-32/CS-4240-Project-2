@@ -33,10 +33,10 @@ public class CFG {
             MIPSInstruction lastInstruction = bb.instructions.get(bb.instructions.size() - 1);
             if (isBranch(lastInstruction))
             {
-                String label = lastInstruction.operands[2].getValue(); // assuming the target label is the third operand
+                String label = lastInstruction.operands[2].getName(); // assuming the target label is the third operand
                 for (BasicBlock block : basicBlocks)
                 {
-                    if (block.instructions.get(0).opCode == MIPSInstruction.OpCode.LABEL && block.instructions.get(0).operands[0].getValue().equals(label))
+                    if (block.instructions.get(0).opCode == MIPSInstruction.OpCode.LABEL && block.instructions.get(0).operands[0].getName().equals(label))
                     {
                         addEdge(bb, block);
                         break;
