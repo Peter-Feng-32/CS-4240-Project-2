@@ -5,11 +5,10 @@ import mips.datatype.MIPSType;
 
 public class MIPSLabelOperand extends MIPSOperand {
 
-    public MIPSType type;
 
-    public MIPSLabelOperand(MIPSType type, String name) {
+
+    public MIPSLabelOperand(String name) {
         super(name);
-        this.type = type;
     }
 
     public String getValueString() {

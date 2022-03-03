@@ -7,12 +7,12 @@ public class MIPSFunctionOperand extends MIPSOperand {
 
     public MIPSType type;
 
-    public MIPSFunctionOperand(MIPSType type, String value, MIPSInstruction parent) {
-        super(value, parent);
+    public MIPSFunctionOperand(MIPSType type, String name) {
+        super(name);
         this.type = type;
     }
 
     public String getValueString() {
-        return value;
+        return name;
     }
 }

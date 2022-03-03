@@ -6,7 +6,7 @@ public class MIPSInstruction {
 
     public enum OpCode {
         LI, LUI,
-        ADD, ADDI, SUB, SUBI, MULT, MULO, DIV, AND, ANDI, OR, ORI,
+        ADD, ADDI, SUB, SUBI, MULT, MULO, DIV, AND, ANDI, OR, ORI, MUL, DIVU, SLL,
         B,
         BEQ, BNE, BLT, BGT, BLE, BGE,
         JR,
