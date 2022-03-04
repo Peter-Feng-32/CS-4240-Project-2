@@ -12,7 +12,8 @@ public class MIPSInstruction {
         JR,
         JAL,
         LW, SW,
-        LABEL;
+        LABEL,
+        SYSCALL;
         //Add more instructions as necessary when they come up during writing the translator.
 
         @Override
