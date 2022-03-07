@@ -137,21 +137,6 @@ public class IRToMIPSTranslator {
             mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI,
                     new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("-36", -36)}));
 
-
-            //Add instructions to load parameters into virtual registers.
-            for (int i = 0; i < func.parameters.size(); i++) {
-                //Get correct virtual register number
-                IRVariableOperand ivo = func.parameters.get(i);
-                int vRegNum = varToRegMap.get(ivo.getName());
-                int K = func.parameters.size();
-                //Add instruction to load
-                //K total parameters
-                //LW $vi, 4 + (K - 1 - i) * 4, $fp
-                int paramFPOffset = 4 + (K-1 - i) * 4;
-                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
-                        new MIPSOperand[]{new MIPSRegisterOperand(vRegNum, "$vir" + vRegNum, true), new MIPSConstantOperand("" + paramFPOffset, paramFPOffset), new MIPSRegisterOperand(-1, "$fp", false)}));
-            }
-
             //Create an array to frame pointer offset table for every array.
             int fpRunningOffset = -36; //offset by $ra and $s0 - $s7
 
@@ -164,6 +149,20 @@ public class IRToMIPSTranslator {
                             new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("" + (-4*arraySize), (-4*arraySize))}));
                     arrayToFPOffsetMap.put(ivo.getName(), fpRunningOffset);
                 }
+            }
+            // Moved to after array creation so all stack pointer manipulation is done before virtual registers are introduced.
+            //Add instructions to load parameters into virtual registers.
+            for (int i = 0; i < func.parameters.size(); i++) {
+                //Get correct virtual register number
+                IRVariableOperand ivo = func.parameters.get(i);
+                int vRegNum = varToRegMap.get(ivo.getName());
+                int K = func.parameters.size();
+                //Add instruction to load
+                //K total parameters
+                //LW $vi, 4 + (K - 1 - i) * 4, $fp
+                int paramFPOffset = 4 + (K-1 - i) * 4;
+                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
+                        new MIPSOperand[]{new MIPSRegisterOperand(vRegNum, "$vir" + vRegNum, true), new MIPSConstantOperand("" + paramFPOffset, paramFPOffset), new MIPSRegisterOperand(-1, "$fp", false)}));
             }
 
             //Do Instruction Translation
