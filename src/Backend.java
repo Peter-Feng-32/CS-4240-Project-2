@@ -17,7 +17,7 @@ public class Backend {
         IRProgram program = irReader.parseIRFile(args[0]);
         MIPSProgram mips = IRToMIPSTranslator.translate(program);
         String filename = "spimTEST.s";
-        
+        MIPSPrinter.print(filename, mips);
 
 
     }
