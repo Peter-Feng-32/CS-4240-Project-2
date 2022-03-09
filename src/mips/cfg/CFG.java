@@ -9,6 +9,8 @@ import java.util.List;
 public class CFG {
     public BasicBlock root;
 
+    //todo: handle unconditional branch (J)
+
     public static CFG MakeCFG(MIPSSubroutine func)
     {
         CFG cfg = new CFG();

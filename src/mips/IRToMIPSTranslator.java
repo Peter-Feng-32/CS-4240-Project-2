@@ -80,17 +80,20 @@ public class IRToMIPSTranslator {
             HashMap<String, Integer> varToRegMap = new HashMap<>();
             HashMap<String, Integer> arrayToFPOffsetMap = new HashMap<>();
             int regCount = 0;
+            System.out.println(func.name);
 
             //Assign a virtual register for every parameter.
             mipsSub.parameters = new ArrayList<MIPSRegisterOperand>();
             for (IRVariableOperand ivo : func.parameters) {
                 mipsSub.parameters.add(new MIPSRegisterOperand(regCount, ivo.getName(), true));
+                System.out.println(ivo.getName() + " " + regCount);
                 varToRegMap.put(ivo.getName(), regCount);
                 regCount++;
             }
 
             //Add a virtual register for every variable
             for(IRVariableOperand ivo: func.variables) {
+                System.out.println(ivo.getName() + " " + regCount);
                 varToRegMap.put(ivo.getName(), regCount);
                 regCount++;
             }
@@ -183,9 +186,9 @@ public class IRToMIPSTranslator {
             //2) Load $ra (LW $ra, -4, $fp)
             mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
                     new MIPSOperand[]{new MIPSRegisterOperand(-1, "$ra", false), new MIPSConstantOperand("" + -4, -4), new MIPSRegisterOperand(-1, "$fp", false)}));
-            //3) Restore $sp ($sp = $fp + 4)
-            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
-                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("" + 4, 4), new MIPSRegisterOperand(-1, "$fp", false)}));
+            //3) Restore $sp ($sp = $fp + 4) (ADDI $sp, $fp, 4)
+            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI,
+                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$fp", false), new MIPSConstantOperand("" + 4, 4)}));
             //4) Restore caller's $fp
             mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
                     new MIPSOperand[]{new MIPSRegisterOperand(-1, "$fp", false), new MIPSConstantOperand("" + 0, 0), new MIPSRegisterOperand(-1, "$fp", false)}));
@@ -196,6 +199,7 @@ public class IRToMIPSTranslator {
             //Done
             mipsProgram.subroutines.add(mipsSub);
         }
+
         return mipsProgram;
     }
     private static ArrayList<MIPSInstruction> translateInstruction(IRInstruction iri, HashMap<String, Integer> varToRegMap, HashMap<String, Integer> arrayToFPOffsetMap, String funcName) throws Exception {
@@ -449,40 +453,40 @@ public class IRToMIPSTranslator {
              case DIV:
                  /* todo:
                   * DIV t, a, b
-                  * Case a == variable, b == variable -> DIVU t, a, b
-                  * Case a == variable, b == constant -> LI temp, b; DIVU, t, a, temp
-                  * Case a == constant, b == variable -> LI temp, a; DIVU t, temp, b
+                  * Case a == variable, b == variable -> DIV t, a, b
+                  * Case a == variable, b == constant -> LI temp, b; DIV, t, a, temp
+                  * Case a == constant, b == variable -> LI temp, a; DIV t, temp, b
                   * Case a == constant, b == constant -> LI t, a/b
                   * */
 
                  // Case a == variable, b == variable
-                 //DIVU t, a, b
+                 //DIV t, a, b
                  if(iri.operands[1] instanceof IRVariableOperand && iri.operands[2] instanceof IRVariableOperand) {
-                     MIPSInstruction mipsI = new MIPSInstruction(MIPSInstruction.OpCode.DIVU, new MIPSOperand[]{
+                     MIPSInstruction mipsI = new MIPSInstruction(MIPSInstruction.OpCode.DIV, new MIPSOperand[]{
                              newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[0]).getName()), newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[1]).getName()), newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[2]).getName())
                      });
                      newInstructions.add(mipsI);
                  }
 
                  //Case a == variable, b == constant
-                 // LI temp, b; DIVU, t, a, temp
+                 // LI temp, b; DIV, t, a, temp
                  else if(iri.operands[1] instanceof IRVariableOperand && iri.operands[2] instanceof IRConstantOperand) {
                      MIPSInstruction mipsILI = new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[] {
                              new MIPSRegisterOperand(-1, "$virArithTemp", true), newConstantOp(((IRConstantOperand) iri.operands[2]).getValueString())
                      });
-                     MIPSInstruction mipsIArith = new MIPSInstruction(MIPSInstruction.OpCode.DIVU, new MIPSOperand[]{
+                     MIPSInstruction mipsIArith = new MIPSInstruction(MIPSInstruction.OpCode.DIV, new MIPSOperand[]{
                              newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[0]).getName()), newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[1]).getName()), new MIPSRegisterOperand(-1, "$virArithTemp", true)
                      });
                      newInstructions.add(mipsILI);
                      newInstructions.add(mipsIArith);
                  }
                  //Case a == constant, b == variable
-                 // LI temp, a; DIVU t, temp, b
+                 // LI temp, a; DIV t, temp, b
                  else if(iri.operands[1] instanceof IRConstantOperand && iri.operands[2] instanceof IRVariableOperand) {
                      MIPSInstruction mipsILI = new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[] {
                              new MIPSRegisterOperand(-1, "$virArithTemp", true), newConstantOp(((IRConstantOperand) iri.operands[1]).getValueString())
                      });
-                     MIPSInstruction mipsIArith = new MIPSInstruction(MIPSInstruction.OpCode.DIVU, new MIPSOperand[]{
+                     MIPSInstruction mipsIArith = new MIPSInstruction(MIPSInstruction.OpCode.DIV, new MIPSOperand[]{
                              newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[0]).getName()), new MIPSRegisterOperand(-1, "$virArithTemp", true), newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[2]).getName())
                      });
                      newInstructions.add(mipsILI);
@@ -645,7 +649,7 @@ public class IRToMIPSTranslator {
                  else {
                      boolean toBranch = Integer.parseInt(((IRConstantOperand)iri.operands[1]).getValueString()) == Integer.parseInt(((IRConstantOperand)iri.operands[2]).getValueString());
                      if(toBranch) {
-                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.B, new MIPSOperand[]{
+                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
                                  new MIPSLabelOperand(((IRLabelOperand) iri.operands[0]).getName() + "_" + funcName)
                          });
                          newInstructions.add(mipsIBranch);
@@ -695,7 +699,7 @@ public class IRToMIPSTranslator {
                  else {
                      boolean toBranch = Integer.parseInt(((IRConstantOperand)iri.operands[1]).getValueString()) != Integer.parseInt(((IRConstantOperand)iri.operands[2]).getValueString());
                      if(toBranch) {
-                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.B, new MIPSOperand[]{
+                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
                                  new MIPSLabelOperand(((IRLabelOperand) iri.operands[0]).getName() + "_" + funcName)
                          });
                          newInstructions.add(mipsIBranch);
@@ -744,7 +748,7 @@ public class IRToMIPSTranslator {
                  else {
                      boolean toBranch = Integer.parseInt(((IRConstantOperand)iri.operands[1]).getValueString()) < Integer.parseInt(((IRConstantOperand)iri.operands[2]).getValueString());
                      if(toBranch) {
-                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.B, new MIPSOperand[]{
+                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
                                  new MIPSLabelOperand(((IRLabelOperand) iri.operands[0]).getName() + "_" + funcName)
                          });
                          newInstructions.add(mipsIBranch);
@@ -793,7 +797,7 @@ public class IRToMIPSTranslator {
                  else {
                      boolean toBranch = Integer.parseInt(((IRConstantOperand)iri.operands[1]).getValueString()) > Integer.parseInt(((IRConstantOperand)iri.operands[2]).getValueString());
                      if(toBranch) {
-                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.B, new MIPSOperand[]{
+                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
                                  new MIPSLabelOperand(((IRLabelOperand) iri.operands[0]).getName() + "_" + funcName)
                          });
                          newInstructions.add(mipsIBranch);
@@ -842,7 +846,7 @@ public class IRToMIPSTranslator {
                  else {
                      boolean toBranch = Integer.parseInt(((IRConstantOperand)iri.operands[1]).getValueString()) <= Integer.parseInt(((IRConstantOperand)iri.operands[2]).getValueString());
                      if(toBranch) {
-                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.B, new MIPSOperand[]{
+                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
                                  new MIPSLabelOperand(((IRLabelOperand) iri.operands[0]).getName() + "_" + funcName)
                          });
                          newInstructions.add(mipsIBranch);
@@ -892,7 +896,7 @@ public class IRToMIPSTranslator {
                  else {
                      boolean toBranch = Integer.parseInt(((IRConstantOperand)iri.operands[1]).getValueString()) >= Integer.parseInt(((IRConstantOperand)iri.operands[2]).getValueString());
                      if(toBranch) {
-                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.B, new MIPSOperand[]{
+                         MIPSInstruction mipsIBranch = new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
                                  new MIPSLabelOperand(((IRLabelOperand) iri.operands[0]).getName() + "_" + funcName)
                          });
                          newInstructions.add(mipsIBranch);
@@ -904,7 +908,7 @@ public class IRToMIPSTranslator {
                  /* todo:
                   * GOTO label -> B, label
                   * */
-                 MIPSInstruction mipsIGoto = new MIPSInstruction(MIPSInstruction.OpCode.B, new MIPSOperand[]{
+                 MIPSInstruction mipsIGoto = new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
                          new MIPSLabelOperand(((IRLabelOperand) iri.operands[0]).getName() + "_" + funcName)
                  });
                  newInstructions.add(mipsIGoto);
@@ -934,8 +938,8 @@ public class IRToMIPSTranslator {
                  newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
                          new MIPSOperand[]{new MIPSRegisterOperand(-1, "$ra", false), new MIPSConstantOperand("" + -4, -4), new MIPSRegisterOperand(-1, "$fp", false)}));
                  //3) Restore $sp ($sp = $fp + 4)
-                 newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
-                         new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand("" + 4, 4), new MIPSRegisterOperand(-1, "$fp", false)}));
+                 newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI,
+                         new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$fp", false), new MIPSConstantOperand("" + 4, 4)}));
                  //4) Restore caller's $fp
                  newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
                          new MIPSOperand[]{new MIPSRegisterOperand(-1, "$fp", false), new MIPSConstantOperand("" + 0, 0), new MIPSRegisterOperand(-1, "$fp", false)}));

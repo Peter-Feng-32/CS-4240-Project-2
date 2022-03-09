@@ -45,6 +45,7 @@ label3:
     assign, i, 5
 loop:
     mult, s, i, i
+CRASH:
     brgt, exit, s, n
     callr, t, divisible, n, i
     assign, r, r0

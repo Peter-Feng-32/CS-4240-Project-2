@@ -58,10 +58,13 @@ public class MIPSPrinter {
         }
         File file = new File(filename);
         file.createNewFile();
+//        System.out.println(file.exists());
         FileWriter wr = new FileWriter(file);
         for (String s : al) {
+//            System.out.println(s);
             wr.write(s);
         }
+
         wr.close();
     }
 }
