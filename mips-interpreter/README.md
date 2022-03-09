@@ -20,7 +20,7 @@ To run a MIPS program, run:
 java -cp build main.java.mips.MIPSInterpreter file.s
 ```
 
-Replace `file.s` with the path to the file you want to run.
+## Replace `file.s` with the path to the file you want to run.
 
 To run a MIPS program with inputs stored in another file, run:
 
