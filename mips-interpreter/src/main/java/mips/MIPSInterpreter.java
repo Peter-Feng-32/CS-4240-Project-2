@@ -100,6 +100,7 @@ public class MIPSInterpreter {
         writeRegister("$zero", 0);
         writeRegister("$0", 0);
 
+
         // populate floating point regs
         for (int i = 0; i < 32; i++) {
             writeRegister("$f" + i, 0.0f);
