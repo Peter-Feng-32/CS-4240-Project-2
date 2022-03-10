@@ -18,15 +18,28 @@ public class RegAllocator {
             MIPSSubroutine mipsSub = new MIPSSubroutine();
             mipsSub.name = subroutine.name;
             mipsSub.returnType = (subroutine.returnType == null) ? null : MIPSWordType.get();
-            mipsSub.instructions = new ArrayList<MIPSInstruction>();
-            // Store mapping of virtual registers to spill locations
-            HashMap<Integer, Integer> regToOffsetMap = new HashMap<>();
+            mipsSub.instructions = new ArrayList<>();
             // Number of variables that need to be stored on the stacks
             int numVariables = 0;
+            HashMap<String, Integer> virRegToNum = new HashMap<>();
+            // Count the number of virtual registers
+            for (MIPSInstruction instruction : subroutine.instructions)
+            {
+                for (MIPSOperand operand : instruction.operands)
+                {
+                    if (operand instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) operand).virtual && !virRegToNum.containsKey(operand.getName()))
+                    {
+                        virRegToNum.put(operand.getName(), numVariables++);
+                    }
+                }
+            }
+            // We need to make space on the stack for all the spilled registers just before we the first instruction that uses a virtual register to ensure we don't mess up the calling convention
+            boolean seenFirstVirtualReg = false;
             for (MIPSInstruction instruction : subroutine.instructions)
             {
                 MIPSInstruction allocatedInstruction = new MIPSInstruction();
                 allocatedInstruction.opCode = instruction.opCode;
+                allocatedInstruction.operands = new MIPSOperand[instruction.operands.length];
                 int operandIndex = 0;
                 for (MIPSOperand operand : instruction.operands)
                 {
@@ -35,16 +48,17 @@ public class RegAllocator {
                     // Calling convention stuff shouldn't involve virtual registers so this shouldn't break anything?
                     if (operand instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) operand).virtual)
                     {
-                        int virtualRegNum = ((MIPSRegisterOperand) operand).regNum;
-                        // If virtual reg number isn't in the map add it and make room on the stack for the value
-                        if (!regToOffsetMap.containsKey(virtualRegNum))
+                        if (!seenFirstVirtualReg)
                         {
-                            regToOffsetMap.put(virtualRegNum, ++numVariables);
-                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand(String.valueOf(-4), -4)}));
+                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), new MIPSConstantOperand(String.valueOf(-4 * numVariables), -4 * numVariables)}));
+                            seenFirstVirtualReg = true;
                         }
+                        String virtualRegName = operand.getName();
+
                         // Load value from spill location on stack into a temp reg
                         // This also happens when arguments get loaded into virtual registers
-                        mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + operandIndex, false), new MIPSConstantOperand("" + (numVariables - regToOffsetMap.get(virtualRegNum)), (numVariables - regToOffsetMap.get(virtualRegNum))), new MIPSRegisterOperand(-1, "$sp", false)}));
+                        mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + operandIndex, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
+
                         allocatedInstruction.operands[operandIndex] = new MIPSRegisterOperand(-1, "$t" + operandIndex, false);
                     }
                     // Keep non virtual register operands the same
@@ -57,15 +71,15 @@ public class RegAllocator {
                 // Add the new instruction that uses physical registers
                 mipsSub.instructions.add(allocatedInstruction);
                 // Store values in the physical registers back into spill locations on the stack
-                operandIndex = 0;
-                for (MIPSOperand operand : instruction.operands)
+                // Need to go through operands in reverse order in case the destination variable is also an operand
+                for (int i = instruction.operands.length - 1; i > -1; i--)
                 {
+                    MIPSOperand operand = instruction.operands[i];
                     if (operand instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) operand).virtual)
                     {
-                        int virtualRegNum = ((MIPSRegisterOperand) operand).regNum;
-                        mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + operandIndex, false), new MIPSConstantOperand("" + (numVariables - regToOffsetMap.get(virtualRegNum)), (numVariables - regToOffsetMap.get(virtualRegNum))), new MIPSRegisterOperand(-1, "$sp", false)}));
+                        String virtualRegName = operand.getName();
+                        mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + i, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
                     }
-                    operandIndex++;
                 }
             }
             allocatedProgram.subroutines.add(mipsSub);
