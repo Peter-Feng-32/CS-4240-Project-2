@@ -8,6 +8,7 @@ import java.util.List;
 
 public class CFG {
     public BasicBlock root;
+    public List<BasicBlock> basicBlocks;
 
     //todo: handle unconditional branch (J)
 
@@ -16,27 +17,27 @@ public class CFG {
         CFG cfg = new CFG();
         List<MIPSInstruction> instructions = func.instructions;
         List<Integer> leaders = leaderIndices(instructions);
-        List<BasicBlock> basicBlocks = new ArrayList<>();
+        cfg.basicBlocks = new ArrayList<>();
         for (int i = 0; i < leaders.size(); i++)
         {
-            basicBlocks.add(new BasicBlock());
-            BasicBlock bb = basicBlocks.get(i);
-           bb.addInstruction(instructions.get(leaders.get(i)));
-           int index = leaders.get(i) + 1;
-           while (!leaders.contains(index)) {
+            cfg.basicBlocks.add(new BasicBlock());
+            BasicBlock bb = cfg.basicBlocks.get(i);
+            bb.addInstruction(instructions.get(leaders.get(i)));
+            int index = leaders.get(i) + 1;
+            while (index < instructions.size() && !leaders.contains(index)) {
                bb.addInstruction(instructions.get(index));
                index++;
-           }
+            }
         }
-        for (int i = 0; i < basicBlocks.size(); i++)
+        for (int i = 0; i < cfg.basicBlocks.size(); i++)
         {
             // Not sure if there is a goto instruction. If there is this changes a bit
-            BasicBlock bb = basicBlocks.get(i);
+            BasicBlock bb = cfg.basicBlocks.get(i);
             MIPSInstruction lastInstruction = bb.instructions.get(bb.instructions.size() - 1);
-            if (isBranch(lastInstruction))
+            if (isBranch(lastInstruction) || lastInstruction.opCode == MIPSInstruction.OpCode.J)
             {
-                String label = lastInstruction.operands[2].getName(); // assuming the target label is the third operand
-                for (BasicBlock block : basicBlocks)
+                String label = isBranch(lastInstruction) ? lastInstruction.operands[2].getName() : lastInstruction.operands[0].getName(); // assuming the target label is the third operand
+                for (BasicBlock block : cfg.basicBlocks)
                 {
                     if (block.instructions.get(0).opCode == MIPSInstruction.OpCode.LABEL && block.instructions.get(0).operands[0].getName().equals(label))
                     {
@@ -45,12 +46,12 @@ public class CFG {
                     }
                 }
             }
-            if (i < leaders.size() - 1)
+            if (i < leaders.size() - 1 && lastInstruction.opCode != MIPSInstruction.OpCode.J)
             {
-                addEdge(bb, basicBlocks.get(i + 1));
+                addEdge(bb, cfg.basicBlocks.get(i + 1));
             }
         }
-        cfg.root = basicBlocks.get(0);
+        cfg.root = cfg.basicBlocks.get(0);
         return cfg;
     }
     private static void addEdge(BasicBlock pred, BasicBlock succ)

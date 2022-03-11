@@ -193,9 +193,20 @@ public class IRToMIPSTranslator {
             mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
                     new MIPSOperand[]{new MIPSRegisterOperand(-1, "$fp", false), new MIPSConstantOperand("" + 0, 0), new MIPSRegisterOperand(-1, "$fp", false)}));
             //5) Return
-            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.JR,
-                    new MIPSOperand[]{new MIPSRegisterOperand(-1, "$ra", false)}));
-
+            if (func.name != "main")
+            {
+                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[]{
+                        new MIPSRegisterOperand(-1, "$v0", false), newConstantOp("10")
+                }));
+                //Syscall
+                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SYSCALL, new MIPSOperand[]{
+                }));
+            }
+            else
+            {
+                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.JR,
+                        new MIPSOperand[]{new MIPSRegisterOperand(-1, "$ra", false)}));
+            }
             //Done
             mipsProgram.subroutines.add(mipsSub);
         }
@@ -1038,36 +1049,35 @@ public class IRToMIPSTranslator {
                     */
 
                      //1, 2
-                     // Not super necessary since we don't use the registers and it makes debugging easier
 
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("-4"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a1", false), newConstantOp("-8"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a2", false), newConstantOp("-12"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a3", false), newConstantOp("-16"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t0", false), newConstantOp("-20"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t1", false), newConstantOp("-24"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t2", false), newConstantOp("-28"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t3", false), newConstantOp("-32"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t4", false), newConstantOp("-36"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t5", false), newConstantOp("-40"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t6", false), newConstantOp("-44"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t7", false), newConstantOp("-48"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t8", false), newConstantOp("-52"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t9", false), newConstantOp("-56"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("-4"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a1", false), newConstantOp("-8"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a2", false), newConstantOp("-12"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a3", false), newConstantOp("-16"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t0", false), newConstantOp("-20"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t1", false), newConstantOp("-24"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t2", false), newConstantOp("-28"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t3", false), newConstantOp("-32"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t4", false), newConstantOp("-36"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t5", false), newConstantOp("-40"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t6", false), newConstantOp("-44"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t7", false), newConstantOp("-48"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t8", false), newConstantOp("-52"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t9", false), newConstantOp("-56"), new MIPSRegisterOperand(-1, "$sp", false)}));
 
 
                      //Any other function.  Push args, call function, then restore $sp.
@@ -1086,7 +1096,7 @@ public class IRToMIPSTranslator {
 //                            }));
                             //SW $a0, 0, $sp
                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-                                    new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
+                                    new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56 - 4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
                             }));
                         } else {
                             //Variable arg: ADDI $a0, $arg, 0; ADDI $sp, $sp, -4; SW $a0, 0, $sp
@@ -1099,13 +1109,13 @@ public class IRToMIPSTranslator {
 //                            }));
                             //SW $a0, 0, $sp
                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-                                    new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
+                                    new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56 -4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
                             }));
                         }
                     }
                     // Moved stack pointer manipulation here to  help with register allocation
                      newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp(""+ (-4 * (numArguments))), }));
+                             new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp(""+ (-56 -4 * (numArguments))), }));
 
                     //Call Function
                      newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.JAL, new MIPSOperand[]{
@@ -1117,38 +1127,37 @@ public class IRToMIPSTranslator {
                              new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("" + numArguments * 4)
                      }));
                      //7,8,9
-                     // Not super necessary since we don't use the registers and it makes debugging easier
 
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("56"), }));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("-4"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a1", false), newConstantOp("-8"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a2", false), newConstantOp("-12"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a3", false), newConstantOp("-16"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t0", false), newConstantOp("-20"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t1", false), newConstantOp("-24"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t2", false), newConstantOp("-28"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t3", false), newConstantOp("-32"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t4", false), newConstantOp("-36"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t5", false), newConstantOp("-40"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t6", false), newConstantOp("-44"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t7", false), newConstantOp("-48"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t8", false), newConstantOp("-52"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t9", false), newConstantOp("-56"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("56"), }));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("-4"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a1", false), newConstantOp("-8"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a2", false), newConstantOp("-12"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a3", false), newConstantOp("-16"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t0", false), newConstantOp("-20"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t1", false), newConstantOp("-24"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t2", false), newConstantOp("-28"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t3", false), newConstantOp("-32"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t4", false), newConstantOp("-36"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t5", false), newConstantOp("-40"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t6", false), newConstantOp("-44"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t7", false), newConstantOp("-48"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t8", false), newConstantOp("-52"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t9", false), newConstantOp("-56"), new MIPSRegisterOperand(-1, "$sp", false)}));
 
                  }
 
@@ -1215,35 +1224,34 @@ public class IRToMIPSTranslator {
                     */
 
                      //1, 2
-                     // Not super necessary since we don't use the registers and it makes debugging easier
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("-4"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a1", false), newConstantOp("-8"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a2", false), newConstantOp("-12"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a3", false), newConstantOp("-16"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t0", false), newConstantOp("-20"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t1", false), newConstantOp("-24"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t2", false), newConstantOp("-28"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t3", false), newConstantOp("-32"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t4", false), newConstantOp("-36"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t5", false), newConstantOp("-40"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t6", false), newConstantOp("-44"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t7", false), newConstantOp("-48"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t8", false), newConstantOp("-52"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t9", false), newConstantOp("-56"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("-4"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a1", false), newConstantOp("-8"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a2", false), newConstantOp("-12"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a3", false), newConstantOp("-16"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t0", false), newConstantOp("-20"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t1", false), newConstantOp("-24"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t2", false), newConstantOp("-28"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t3", false), newConstantOp("-32"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t4", false), newConstantOp("-36"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t5", false), newConstantOp("-40"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t6", false), newConstantOp("-44"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t7", false), newConstantOp("-48"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t8", false), newConstantOp("-52"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t9", false), newConstantOp("-56"), new MIPSRegisterOperand(-1, "$sp", false)}));
 
 
                      //Any other function.  Push args, call function, then restore $sp.
@@ -1262,7 +1270,7 @@ public class IRToMIPSTranslator {
 //                             }));
                              //SW $a0, 0, $sp
                              newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
+                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
                              }));
                          } else {
                              //Variable arg: ADDI $a0, $arg, 0; ADDI $sp, $sp, -4; SW $a0, 0, $sp
@@ -1275,13 +1283,13 @@ public class IRToMIPSTranslator {
 //                             }));
                              //SW $a0, 0, $sp
                              newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
+                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
                              }));
                          }
                      }
                      // Moved to help with register allocation
                      newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("" + (-4 * (numArguments))), }));
+                             new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("" + (-56 -4 * (numArguments))), }));
 
                      //Call Function
                      newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.JAL, new MIPSOperand[]{
@@ -1294,37 +1302,36 @@ public class IRToMIPSTranslator {
                      }));
 
                      //7,8,9
-                     // Not super necessary since we don't use the registers and it makes debugging easier
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("56"), }));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("-4"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a1", false), newConstantOp("-8"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a2", false), newConstantOp("-12"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$a3", false), newConstantOp("-16"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t0", false), newConstantOp("-20"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t1", false), newConstantOp("-24"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t2", false), newConstantOp("-28"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t3", false), newConstantOp("-32"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t4", false), newConstantOp("-36"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t5", false), newConstantOp("-40"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t6", false), newConstantOp("-44"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t7", false), newConstantOp("-48"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t8", false), newConstantOp("-52"), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
-//                             new MIPSRegisterOperand(-1, "$t9", false), newConstantOp("-56"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("56"), }));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("-4"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a1", false), newConstantOp("-8"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a2", false), newConstantOp("-12"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$a3", false), newConstantOp("-16"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t0", false), newConstantOp("-20"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t1", false), newConstantOp("-24"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t2", false), newConstantOp("-28"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t3", false), newConstantOp("-32"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t4", false), newConstantOp("-36"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t5", false), newConstantOp("-40"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t6", false), newConstantOp("-44"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t7", false), newConstantOp("-48"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t8", false), newConstantOp("-52"), new MIPSRegisterOperand(-1, "$sp", false)}));
+                     newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{
+                             new MIPSRegisterOperand(-1, "$t9", false), newConstantOp("-56"), new MIPSRegisterOperand(-1, "$sp", false)}));
                      // Moved to help with register allocation
                      //Save return value from $v0 to destination
                      //ADDI, $dest, $v0, 0
