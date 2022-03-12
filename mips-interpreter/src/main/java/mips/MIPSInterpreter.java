@@ -100,6 +100,9 @@ public class MIPSInterpreter {
         writeRegister("$zero", 0);
         writeRegister("$0", 0);
 
+        for (int i = 0; i < 15; i++) {
+            writeRegister("$vir" + i, 0);
+        }
 
         // populate floating point regs
         for (int i = 0; i < 32; i++) {

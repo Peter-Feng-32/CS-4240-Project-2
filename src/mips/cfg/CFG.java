@@ -31,12 +31,11 @@ public class CFG {
         }
         for (int i = 0; i < cfg.basicBlocks.size(); i++)
         {
-            // Not sure if there is a goto instruction. If there is this changes a bit
             BasicBlock bb = cfg.basicBlocks.get(i);
             MIPSInstruction lastInstruction = bb.instructions.get(bb.instructions.size() - 1);
             if (isBranch(lastInstruction) || lastInstruction.opCode == MIPSInstruction.OpCode.J)
             {
-                String label = isBranch(lastInstruction) ? lastInstruction.operands[2].getName() : lastInstruction.operands[0].getName(); // assuming the target label is the third operand
+                String label = lastInstruction.operands[0].getName();
                 for (BasicBlock block : cfg.basicBlocks)
                 {
                     if (block.instructions.get(0).opCode == MIPSInstruction.OpCode.LABEL && block.instructions.get(0).operands[0].getName().equals(label))

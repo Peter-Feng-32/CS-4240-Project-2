@@ -7,9 +7,12 @@ import mips.operand.MIPSConstantOperand;
 import mips.operand.MIPSOperand;
 import mips.operand.MIPSRegisterOperand;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Queue;
 
 public class RegAllocator {
     public static MIPSProgram IntraBlockAlloc(MIPSProgram virp)
@@ -24,6 +27,49 @@ public class RegAllocator {
             mipsSub.instructions = new ArrayList<>();
 
             CFG cfg = CFG.MakeCFG(subroutine);
+
+            // Compute live sets for each basic block
+            Queue<BasicBlock> workList = new ArrayDeque<>();
+            // Add basic blocks to work list and initialize kill and uevar
+            for (BasicBlock bb : cfg.basicBlocks)
+            {
+                workList.add(bb);
+                for (MIPSInstruction instruction : bb.instructions)
+                {
+                    for (int i = instruction.operands.length - 1; i >= 0 ; i--)
+                    {
+                        if (instruction.operands[i] instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) instruction.operands[i]).virtual)
+                        {
+                            String varName = instruction.operands[i].getName();
+                            if (!isDef(instruction.opCode, i) && !bb.varKill.contains(varName))
+                            {
+                                bb.UEVar.add(varName);
+                            }
+                            if (isDef(instruction.opCode, i))
+                            {
+                                bb.varKill.add(varName);
+                            }
+                        }
+                    }
+                }
+            }
+            while (!workList.isEmpty())
+            {
+                BasicBlock block = workList.poll();
+                for (BasicBlock succ : block.successors)
+                {
+                    block.liveOut.addAll(succ.liveIn);
+                }
+                HashSet<String> temp = new HashSet<>(block.liveOut);
+                temp.removeAll(block.varKill);
+                HashSet<String> newIn = new HashSet<>(block.UEVar);
+                newIn.addAll(temp);
+                if (!newIn.equals(block.liveIn))
+                {
+                    workList.add(block);
+                }
+                block.liveIn = newIn;
+            }
 
             // Number of variables that need to be stored on the stack
             int numVariables = 0;
@@ -43,66 +89,45 @@ public class RegAllocator {
             boolean seenFirstVirtualReg = false;
             for (BasicBlock bb : cfg.basicBlocks)
             {
-                HashMap<String, List<Boolean>> liveRanges = new HashMap<>();
-                // Initialize live range map with all variables used in this basic block
-                for (int i = 0; i < bb.instructions.size(); i++)
-                {
-                    for (MIPSOperand operand : bb.instructions.get(i).operands)
-                    {
-                        if (operand instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) operand).virtual && !liveRanges.containsKey(operand.getName()))
-                        {
-                            liveRanges.put(operand.getName(), new ArrayList<>());
-                        }
-                    }
-                }
                 // Mapping from variables to temp registers
                 HashMap<String, Integer> varToReg = new HashMap<>();
-                if (liveRanges.size() > 0) {
-                    // Calculate the live ranges
-                    for (int i = 0; i < bb.instructions.size(); i++) {
-                        for (int j = bb.instructions.get(i).operands.length - 1; j >= 0; j--) {
-                            if (bb.instructions.get(i).operands[j] instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) bb.instructions.get(i).operands[j]).virtual) {
-                                String varName = bb.instructions.get(i).operands[j].getName();
-                                if (isDef(bb.instructions.get(i).opCode, j)) {
-                                    while (liveRanges.get(varName).size() < i + 1) {
-                                        liveRanges.get(varName).add(false);
-                                    }
-                                } else {
-                                    while (liveRanges.get(varName).size() < i + 1) {
-                                        liveRanges.get(varName).add(true);
-                                    }
+                // Count uses of each variable
+                HashMap<String, Integer> useCounts = new HashMap<>();
+                for (int i = 0; i < bb.instructions.size(); i++) {
+                    for (int j = bb.instructions.get(i).operands.length - 1; j >= 0; j--) {
+                        if (bb.instructions.get(i).operands[j] instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) bb.instructions.get(i).operands[j]).virtual) {
+                            String varName = bb.instructions.get(i).operands[j].getName();
+                            if (!isDef(bb.instructions.get(i).opCode, j))
+                            {
+                                if (useCounts.containsKey(varName))
+                                {
+                                    useCounts.put(varName, useCounts.get(varName) + 1);
+                                }
+                                else
+                                {
+                                    useCounts.put(varName, 1);
                                 }
                             }
                         }
                     }
-                    // Calculate how long each variable is live
-                    HashMap<String, Integer> liveTimes = new HashMap<>();
-                    for (String name : liveRanges.keySet()) {
-                        liveTimes.put(name, 0);
-                        for (boolean val : liveRanges.get(name)) {
-                            if (val) {
-                                liveTimes.put(name, liveTimes.get(name) + 1);
-                            }
-                        }
-                    }
-                    // Find the 10 longest living variables and map them to temp registers
-                    String shortestVar = (String) liveTimes.keySet().toArray()[0];
-                    for (String name : liveTimes.keySet()) {
+                }
+                // Find the 10 most used variables and map them to temp registers
+                if (useCounts.size() > 0) {
+                    String shortestVar = (String) useCounts.keySet().toArray()[0];
+                    for (String name : useCounts.keySet()) {
                         if (varToReg.size() < 10) {
-                            if (liveTimes.get(name) < liveTimes.get(shortestVar)) {
+                            if (useCounts.get(name) < useCounts.get(shortestVar)) {
                                 shortestVar = name;
                             }
                             varToReg.put(name, varToReg.size());
                         } else {
-                            if (liveTimes.get(name) > liveTimes.get(shortestVar))
-                            {
+                            if (useCounts.get(name) > useCounts.get(shortestVar)) {
                                 int reg = varToReg.get(shortestVar);
                                 varToReg.remove(shortestVar);
                                 varToReg.put(name, reg);
                                 shortestVar = (String) varToReg.keySet().toArray()[0];
-                                for (String shortNames : varToReg.keySet())
-                                {
-                                    if (liveTimes.get(shortNames) < liveTimes.get(shortestVar)) {
+                                for (String shortNames : varToReg.keySet()) {
+                                    if (useCounts.get(shortNames) < useCounts.get(shortestVar)) {
                                         shortestVar = shortNames;
                                     }
                                 }
@@ -111,6 +136,7 @@ public class RegAllocator {
                     }
                 }
                 boolean loadedRegs = false;
+
                 // Iterate over instructions and do the allocations
                 for (MIPSInstruction instruction : bb.instructions)
                 {
@@ -118,14 +144,18 @@ public class RegAllocator {
                     allocatedInstruction.opCode = instruction.opCode;
                     allocatedInstruction.operands = new MIPSOperand[instruction.operands.length];
 
-                    // Load variables from stack into registers\
-                    // Must load them after the label if the basic block starts with a label
+                    // Load variables from stack into registers
                     if (!loadedRegs && instruction.opCode != MIPSInstruction.OpCode.LABEL)
                     {
                         // Load values from stack into reg once per basic block
                         for (String name : varToReg.keySet())
                         {
-                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                            if (bb.liveIn.contains(name))
+                            {
+                                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                            }
+//                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+
                         }
                         loadedRegs = true;
                     }
@@ -152,7 +182,7 @@ public class RegAllocator {
                                 // Load value from spill location on stack into a temp reg
                                 mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$s" + operandIndex, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
 
-                                allocatedInstruction.operands[operandIndex] = new MIPSRegisterOperand(-1, "$t" + operandIndex, false);
+                                allocatedInstruction.operands[operandIndex] = new MIPSRegisterOperand(-1, "$s" + operandIndex, false);
                             }
                         }
                         // Keep non virtual register operands the same
@@ -172,7 +202,7 @@ public class RegAllocator {
                         if (operand instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) operand).virtual && !varToReg.containsKey(operand.getName()))
                         {
                             String virtualRegName = operand.getName();
-                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + i, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$s" + i, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
                         }
                     }
                 }
@@ -181,6 +211,11 @@ public class RegAllocator {
                 {
                     for (String name : varToReg.keySet())
                     {
+//                        if (bb.liveOut.contains(name))
+//                        {
+//                            mipsSub.instructions.add(mipsSub.instructions.size() - 1, new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+//
+//                        }
                         mipsSub.instructions.add(mipsSub.instructions.size() - 1, new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
                     }
                 }
@@ -188,6 +223,10 @@ public class RegAllocator {
                 {
                     for (String name : varToReg.keySet())
                     {
+//                        if (bb.liveOut.contains(name))
+//                        {
+//                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+//                        }
                         mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
                     }
                 }
