@@ -16,7 +16,7 @@ public class Backend {
         IRReader irReader = new IRReader();
         IRProgram program = irReader.parseIRFile(args[0]);
         MIPSProgram mips = IRToMIPSTranslator.translate(program);
-        MIPSProgram alloc = RegAllocator.IntraBlockAlloc(mips);
+        MIPSProgram alloc = RegAllocator.NaiveAlloc(mips);
         String filename = "spimTEST.s";
         MIPSPrinter.print(filename, alloc);
 

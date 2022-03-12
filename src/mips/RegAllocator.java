@@ -66,7 +66,10 @@ public class RegAllocator {
                 newIn.addAll(temp);
                 if (!newIn.equals(block.liveIn))
                 {
-                    workList.add(block);
+                    for (BasicBlock pred : block.predecessors)
+                    {
+                        workList.add(pred);
+                    }
                 }
                 block.liveIn = newIn;
             }
@@ -180,8 +183,10 @@ public class RegAllocator {
                             }
                             else {
                                 // Load value from spill location on stack into a temp reg
-                                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$s" + operandIndex, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
-
+                                // No need to load the variable if its being written to
+                                if (!isDef(instruction.opCode, operandIndex)) {
+                                    mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$s" + operandIndex, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                                }
                                 allocatedInstruction.operands[operandIndex] = new MIPSRegisterOperand(-1, "$s" + operandIndex, false);
                             }
                         }
@@ -202,7 +207,9 @@ public class RegAllocator {
                         if (operand instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) operand).virtual && !varToReg.containsKey(operand.getName()))
                         {
                             String virtualRegName = operand.getName();
-                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$s" + i, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                            if (isDef(instruction.opCode, i)) {
+                                mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$s" + i, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                            }
                         }
                     }
                 }
@@ -211,23 +218,23 @@ public class RegAllocator {
                 {
                     for (String name : varToReg.keySet())
                     {
-//                        if (bb.liveOut.contains(name))
-//                        {
-//                            mipsSub.instructions.add(mipsSub.instructions.size() - 1, new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
-//
-//                        }
-                        mipsSub.instructions.add(mipsSub.instructions.size() - 1, new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                        if (bb.liveOut.contains(name))
+                        {
+                            mipsSub.instructions.add(mipsSub.instructions.size() - 1, new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+
+                        }
+//                        mipsSub.instructions.add(mipsSub.instructions.size() - 1, new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
                     }
                 }
                 else
                 {
                     for (String name : varToReg.keySet())
                     {
-//                        if (bb.liveOut.contains(name))
-//                        {
-//                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
-//                        }
-                        mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                        if (bb.liveOut.contains(name))
+                        {
+                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                        }
+//                        mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + varToReg.get(name), false), new MIPSConstantOperand("" + 4 * virRegToNum.get(name), 4 * virRegToNum.get(name)), new MIPSRegisterOperand(-1, "$sp", false)}));
                     }
                 }
             }
@@ -283,8 +290,10 @@ public class RegAllocator {
 
                         // Load value from spill location on stack into a temp reg
                         // This also happens when arguments get loaded into virtual registers
-                        mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + operandIndex, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
-
+                        // No need to load the variable if its being written to
+                        if (!isDef(instruction.opCode, operandIndex)) {
+                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + operandIndex, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                        }
                         allocatedInstruction.operands[operandIndex] = new MIPSRegisterOperand(-1, "$t" + operandIndex, false);
                     }
                     // Keep non virtual register operands the same
@@ -304,7 +313,11 @@ public class RegAllocator {
                     if (operand instanceof MIPSRegisterOperand && ((MIPSRegisterOperand) operand).virtual)
                     {
                         String virtualRegName = operand.getName();
-                        mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + i, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
+                        // Only need to write back the defs
+                        if (isDef(instruction.opCode, i)) {
+                            mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{new MIPSRegisterOperand(-1, "$t" + i, false), new MIPSConstantOperand("" + 4 * virRegToNum.get(virtualRegName), 4 * virRegToNum.get(virtualRegName)), new MIPSRegisterOperand(-1, "$sp", false)}));
+
+                        }
                     }
                 }
             }
