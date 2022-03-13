@@ -20,6 +20,7 @@ public class IRToMIPSTranslator {
 
     public static MIPSProgram translate(IRProgram irp) throws Exception {
         MIPSProgram mipsProgram = new MIPSProgram();
+        int regCount = 0;
         for (IRFunction func : irp.functions) {
 
             /*Add instructions to perform calling convention
@@ -79,21 +80,23 @@ public class IRToMIPSTranslator {
 
             HashMap<String, Integer> varToRegMap = new HashMap<>();
             HashMap<String, Integer> arrayToFPOffsetMap = new HashMap<>();
-            int regCount = 0;
-//            System.out.println(func.name);
+
+            System.out.println(func.name);
 
             //Assign a virtual register for every parameter.
             mipsSub.parameters = new ArrayList<MIPSRegisterOperand>();
             for (IRVariableOperand ivo : func.parameters) {
                 mipsSub.parameters.add(new MIPSRegisterOperand(regCount, ivo.getName(), true));
-//                System.out.println(ivo.getName() + " " + regCount);
+                System.out.println(ivo.getName() + " " + regCount);
                 varToRegMap.put(ivo.getName(), regCount);
                 regCount++;
             }
 
+            //todo: get rid of overlap between parameter and variable so we can rework the code to pass pointers for arrays.
+
             //Add a virtual register for every variable
             for(IRVariableOperand ivo: func.variables) {
-//                System.out.println(ivo.getName() + " " + regCount);
+              System.out.println(ivo.getName() + " " + regCount);
                 varToRegMap.put(ivo.getName(), regCount);
                 regCount++;
             }
@@ -193,7 +196,7 @@ public class IRToMIPSTranslator {
             mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
                     new MIPSOperand[]{new MIPSRegisterOperand(-1, "$fp", false), new MIPSConstantOperand("" + 0, 0), new MIPSRegisterOperand(-1, "$fp", false)}));
             //5) Return
-            if (func.name != "main")
+            if (func.name.equals("main"))
             {
                 mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[]{
                         new MIPSRegisterOperand(-1, "$v0", false), newConstantOp("10")
@@ -1083,36 +1086,37 @@ public class IRToMIPSTranslator {
                      //Any other function.  Push args, call function, then restore $sp.
                     int numArguments = iri.operands.length - 1;
                     //Push Args
-                    for(int i = 0; i < numArguments; i++) {
-                        if(iri.operands[1 + i] instanceof IRConstantOperand) {
-                            //Constant arg: LI $a0 constant; ADDI $sp, $sp, -4; SW $a0, 0, $sp
-                            //LI $a0 constant;
-                            newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[]{
-                                    new MIPSRegisterOperand(-1, "$a0", false), newConstantOp(((IRConstantOperand) iri.operands[1 + i]).getValueString())
-                            }));
-//                            //ADDI $sp, $sp, -4;
-//                            newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-//                                    new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("-4")
-//                            }));
-                            //SW $a0, 0, $sp
-                            newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-                                    new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56 - 4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
-                            }));
-                        } else {
-                            //Variable arg: ADDI $a0, $arg, 0; ADDI $sp, $sp, -4; SW $a0, 0, $sp
-                            newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                                    new MIPSRegisterOperand(-1, "$a0", false), newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[1 + i]).getName()), newConstantOp("0")
-                            }));
-//                            //ADDI $sp, $sp, -4;
-//                            newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-//                                    new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("-4")
-//                            }));
-                            //SW $a0, 0, $sp
-                            newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
-                                    new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56 -4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
-                            }));
-                        }
-                    }
+                     for(int i = 0; i < numArguments; i++) {
+                         if(iri.operands[1 + i] instanceof IRConstantOperand) {
+                             //Constant arg: LI $a0 constant; SW $a0, spOffset, $sp
+                             //LI $a0 constant;
+                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[]{
+                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp(((IRConstantOperand) iri.operands[1 + i]).getValueString())
+                             }));
+                             //SW $a0, spOffset, $sp
+                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
+                             }));
+                         } else if(iri.operands[1 + i] instanceof IRVariableOperand && !(((IRVariableOperand) iri.operands[1 + i]).type instanceof IRArrayType)){
+                             //Non-Array Variable arg: ADDI $a0, $arg, 0; SW $a0, 0, $sp
+                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                     new MIPSRegisterOperand(-1, "$a0", false), newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[1+i]).getName()), newConstantOp("0")
+                             }));
+                             //SW $a0, spOffset, $sp
+                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
+                             }));
+                         }else {
+                             //Array variable arg: ADDI $a0, $fp, arrayToFPOffsetMap[arg]; SW $a0, spOffset, $sp
+                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                     new MIPSRegisterOperand(-1, "$a0", false), new MIPSRegisterOperand(-1, "$fp", false), newConstantOp("" + arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1+i]).getName()))
+                             }));
+                             //SW $a0, spOffset, $sp
+                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
+                             }));
+                         }
+                     }
                     // Moved stack pointer manipulation here to  help with register allocation
                      newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
                              new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp(""+ (-56 -4 * (numArguments))), }));
@@ -1258,30 +1262,31 @@ public class IRToMIPSTranslator {
                      int numArguments = iri.operands.length - 2;
                      //Push Args
                      for(int i = 0; i < numArguments; i++) {
-                         if(iri.operands[1 + i] instanceof IRConstantOperand) {
-                             //Constant arg: LI $a0 constant; ADDI $sp, $sp, -4; SW $a0, 0, $sp
+                         if(iri.operands[2 + i] instanceof IRConstantOperand) {
+                             //Constant arg: LI $a0 constant; SW $a0, spOffset, $sp
                              //LI $a0 constant;
                              newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[]{
                                      new MIPSRegisterOperand(-1, "$a0", false), newConstantOp(((IRConstantOperand) iri.operands[2 + i]).getValueString())
                              }));
-//                             //ADDI $sp, $sp, -4;
-//                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-//                                     new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("-4")
-//                             }));
-                             //SW $a0, 0, $sp
+                             //SW $a0, spOffset, $sp
                              newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
                                      new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
                              }));
-                         } else {
-                             //Variable arg: ADDI $a0, $arg, 0; ADDI $sp, $sp, -4; SW $a0, 0, $sp
+                         } else if(iri.operands[2 + i] instanceof IRVariableOperand && !(((IRVariableOperand) iri.operands[2 + i]).type instanceof IRArrayType)){
+                             //Non-Array Variable arg: ADDI $a0, $arg, 0; SW $a0, 0, $sp
                              newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
                                      new MIPSRegisterOperand(-1, "$a0", false), newVirRegOp(varToRegMap, ((IRVariableOperand) iri.operands[2+i]).getName()), newConstantOp("0")
                              }));
-//                             //ADDI $sp, $sp, -4;
-//                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-//                                     new MIPSRegisterOperand(-1, "$sp", false), new MIPSRegisterOperand(-1, "$sp", false), newConstantOp("-4")
-//                             }));
-                             //SW $a0, 0, $sp
+                             //SW $a0, spOffset, $sp
+                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
+                                     new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
+                             }));
+                         }else {
+                             //Array variable arg: ADDI $a0, $fp, arrayToFPOffsetMap[arg]; SW $a0, spOffset, $sp
+                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                     new MIPSRegisterOperand(-1, "$a0", false), new MIPSRegisterOperand(-1, "$fp", false), newConstantOp("" + arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[2+i]).getName()))
+                             }));
+                             //SW $a0, spOffset, $sp
                              newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
                                      new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
                              }));

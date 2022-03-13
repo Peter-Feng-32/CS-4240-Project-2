@@ -12,6 +12,7 @@ public class IRVariableOperand extends IROperand {
         this.type = type;
     }
 
+
     public String getName() {
         return value;
     }

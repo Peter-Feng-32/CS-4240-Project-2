@@ -18,7 +18,7 @@ public class Backend {
         MIPSProgram mips = IRToMIPSTranslator.translate(program);
         MIPSProgram alloc = RegAllocator.NaiveAlloc(mips);
         String filename = "spimTEST.s";
-        MIPSPrinter.print(filename, alloc);
+        MIPSPrinter.print(filename, mips);
 
         //todo: Check if register allocation makes error with prime numbers from 6-24 go away.
         // This error is currently caused because our virtual registers don't start off by being initialized, but this shouldn't be a problem once we use physical registers after register allocation because they will actually have values.
