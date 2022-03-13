@@ -80,6 +80,7 @@ public class IRToMIPSTranslator {
 
             HashMap<String, Integer> varToRegMap = new HashMap<>();
             HashMap<String, Integer> arrayToFPOffsetMap = new HashMap<>();
+            HashMap<String, Boolean> isParameter = new HashMap<>();
 
             System.out.println(func.name);
 
@@ -87,6 +88,7 @@ public class IRToMIPSTranslator {
             mipsSub.parameters = new ArrayList<MIPSRegisterOperand>();
             for (IRVariableOperand ivo : func.parameters) {
                 mipsSub.parameters.add(new MIPSRegisterOperand(regCount, ivo.getName(), true));
+                isParameter.put(ivo.getName(), true);
                 System.out.println(ivo.getName() + " " + regCount);
                 varToRegMap.put(ivo.getName(), regCount);
                 regCount++;
@@ -96,9 +98,12 @@ public class IRToMIPSTranslator {
 
             //Add a virtual register for every variable
             for(IRVariableOperand ivo: func.variables) {
-              System.out.println(ivo.getName() + " " + regCount);
-                varToRegMap.put(ivo.getName(), regCount);
-                regCount++;
+                if(!isParameter.getOrDefault(ivo.getName(), false)){
+                    System.out.println(ivo.getName() + " " + regCount);
+                    varToRegMap.put(ivo.getName(), regCount);
+                    regCount++;
+                }
+
             }
 
             // Initialize Subroutine with a label
@@ -148,7 +153,7 @@ public class IRToMIPSTranslator {
             int fpRunningOffset = -36; //offset by $ra and $s0 - $s7
 
             for(IRVariableOperand ivo: func.variables) {
-                if(ivo.type instanceof IRArrayType) {
+                if(ivo.type instanceof IRArrayType && !isParameter.getOrDefault(ivo.getName(), false)) {
                     int arraySize = ((IRArrayType) ivo.type).getSize();
                     fpRunningOffset -= (arraySize * 4);
                     //Allocate space in stack
@@ -174,7 +179,7 @@ public class IRToMIPSTranslator {
 
             //Do Instruction Translation
             for (IRInstruction iri : func.instructions) {
-                ArrayList<MIPSInstruction> newInstructions = translateInstruction(iri, varToRegMap, arrayToFPOffsetMap, func.name);
+                ArrayList<MIPSInstruction> newInstructions = translateInstruction(iri, varToRegMap, arrayToFPOffsetMap, isParameter, func.name);
                 for(MIPSInstruction mipsi : newInstructions) {
                     mipsSub.instructions.add(mipsi);
                 }
@@ -216,7 +221,7 @@ public class IRToMIPSTranslator {
 
         return mipsProgram;
     }
-    private static ArrayList<MIPSInstruction> translateInstruction(IRInstruction iri, HashMap<String, Integer> varToRegMap, HashMap<String, Integer> arrayToFPOffsetMap, String funcName) throws Exception {
+    private static ArrayList<MIPSInstruction> translateInstruction(IRInstruction iri, HashMap<String, Integer> varToRegMap, HashMap<String, Integer> arrayToFPOffsetMap, HashMap<String, Boolean> isParameter, String funcName) throws Exception {
         ArrayList<MIPSInstruction> newInstructions = new ArrayList<>();
 
         //All of the below stuff will be removed and replaced with specific code within the switch statement per case.
@@ -271,14 +276,26 @@ public class IRToMIPSTranslator {
                  //Use the same $vir_array for all array ops to increase efficiency for code?
                  else if (iri.operands.length == 3) {
                      int arraySize = Integer.parseInt(((IRConstantOperand)iri.operands[1]).getValueString());
-                     int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[0]).getName());
 
-                     //Load array pointer into virtual register.
+
+                     //Load array pointer into virtual register
+                     //If the array is a local variable use fp offset table
                      //ADDI $virArrayBase $fp, fpOffset
-                     MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
-                     });
-                     newInstructions.add(mipsILoadArrayBase);
+                     //or if the array is a parameter
+                     //use the assigned virtual register
+                     //ADDI $virArrayBase, $vir, 0
+                     if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[0]).getName(), false)){
+                         int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[0]).getName());
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     } else {
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[0]).getName()), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     }
 
                      //If we have a constant value, we have to put it in a register
                      if (iri.operands[2] instanceof IRConstantOperand) {
@@ -1107,10 +1124,21 @@ public class IRToMIPSTranslator {
                                      new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
                              }));
                          }else {
-                             //Array variable arg: ADDI $a0, $fp, arrayToFPOffsetMap[arg]; SW $a0, spOffset, $sp
-                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                                     new MIPSRegisterOperand(-1, "$a0", false), new MIPSRegisterOperand(-1, "$fp", false), newConstantOp("" + arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1+i]).getName()))
-                             }));
+                             //Array variable arg:
+                             // If Local array variable
+                             // ADDI $a0, $fp, arrayToFPOffsetMap[arg]; SW $a0, spOffset, $sp
+                             // If parameter
+                             // ADDI $a0, $vir, 0; SW $a0, spOffset, $sp
+                             if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[1 + i]).getName(), false)){
+                                 newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                         new MIPSRegisterOperand(-1, "$a0", false), new MIPSRegisterOperand(-1, "$fp", false), newConstantOp("" + arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1+i]).getName()))
+                                 }));
+                             } else {
+                                 //Parameter
+                                 newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                         new MIPSRegisterOperand(-1, "$a0", false), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1 + i]).getName()), newConstantOp("0")
+                                 }));
+                             }
                              //SW $a0, spOffset, $sp
                              newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
                                      new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
@@ -1282,10 +1310,20 @@ public class IRToMIPSTranslator {
                                      new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
                              }));
                          }else {
-                             //Array variable arg: ADDI $a0, $fp, arrayToFPOffsetMap[arg]; SW $a0, spOffset, $sp
-                             newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                                     new MIPSRegisterOperand(-1, "$a0", false), new MIPSRegisterOperand(-1, "$fp", false), newConstantOp("" + arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[2+i]).getName()))
-                             }));
+                             // If Local array variable
+                             // ADDI $a0, $fp, arrayToFPOffsetMap[arg]; SW $a0, spOffset, $sp
+                             // If parameter
+                             // ADDI $a0, $vir, 0; SW $a0, spOffset, $sp
+                             if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[2 + i]).getName(), false)){
+                                 newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                         new MIPSRegisterOperand(-1, "$a0", false), new MIPSRegisterOperand(-1, "$fp", false), newConstantOp("" + arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[2+i]).getName()))
+                                 }));
+                             } else {
+                                 //Parameter
+                                 newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                         new MIPSRegisterOperand(-1, "$a0", false), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[2 + i]).getName()), newConstantOp("0")
+                                 }));
+                             }
                              //SW $a0, spOffset, $sp
                              newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[]{
                                      new MIPSRegisterOperand(-1, "$a0", false), newConstantOp("" + (-56-4 * (i + 1))), new MIPSRegisterOperand(-1, "$sp", false)
@@ -1361,11 +1399,23 @@ public class IRToMIPSTranslator {
 
                  if(iri.operands[0] instanceof IRConstantOperand && iri.operands[2] instanceof IRConstantOperand)
                  {
-                     int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
-                     MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
-                     });
-                     newInstructions.add(mipsILoadArrayBase);
+                     // If Local array variable
+                     // ADDI $a0, $fp, arrayToFPOffsetMap[arg]
+                     // If parameter
+                     // ADDI $a0, $vir, 0
+                     if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[1]).getName(), false)){
+                         int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     } else {
+                         //Parameter
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1]).getName()), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     }
                      int arrayValue = Integer.parseInt(((IRConstantOperand)iri.operands[0]).getValueString());
                      MIPSInstruction mipsILoadArrayValue = new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[]{
                              new MIPSRegisterOperand(-1, "$virArrayValue", true), newConstantOp("" + arrayValue)
@@ -1386,11 +1436,23 @@ public class IRToMIPSTranslator {
                      });
                      newInstructions.add(mipsILoadArrayValue);
 
-                     int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
-                     MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
-                     });
-                     newInstructions.add(mipsILoadArrayBase);
+                     // If Local array variable
+                     // ADDI $a0, $fp, arrayToFPOffsetMap[arg]
+                     // If parameter
+                     // ADDI $a0, $vir, 0
+                     if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[1]).getName(), false)){
+                         int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     } else {
+                         //Parameter
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1]).getName()), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     }
 
                      MIPSInstruction mipsSLL = new MIPSInstruction(MIPSInstruction.OpCode.SLL, new MIPSOperand[] {
                              new MIPSRegisterOperand(-1, "$virArrayLocation", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[2]).getName()), newConstantOp("2")
@@ -1407,11 +1469,23 @@ public class IRToMIPSTranslator {
                  }
                  //CASE x == variable, offset == immediate -> SW, x, offset * 4, (fpOffset)
                  else if(iri.operands[0] instanceof IRVariableOperand && iri.operands[2] instanceof IRConstantOperand) {
-                     int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
-                     MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
-                     });
-                     newInstructions.add(mipsILoadArrayBase);
+                     // If Local array variable
+                     // ADDI $a0, $fp, arrayToFPOffsetMap[arg]
+                     // If parameter
+                     // ADDI $a0, $vir, 0
+                     if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[1]).getName(), false)){
+                         int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     } else {
+                         //Parameter
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1]).getName()), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     }
 
                      int offset = Integer.parseInt(((IRConstantOperand)iri.operands[2]).getValueString()) * 4;
                      MIPSInstruction mipsI = new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[] {
@@ -1421,11 +1495,23 @@ public class IRToMIPSTranslator {
                  }
                  //CASE x == variable, offset == variable -> SLL, virOffset, offset, 2;  ADD, virOffset, virOffset, fpOffset;  SW, x, 0(virOffset)
                  else{
-                     int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
-                     MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
-                     });
-                     newInstructions.add(mipsILoadArrayBase);
+                     // If Local array variable
+                     // ADDI $a0, $fp, arrayToFPOffsetMap[arg]
+                     // If parameter
+                     // ADDI $a0, $vir, 0
+                     if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[1]).getName(), false)){
+                         int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     } else {
+                         //Parameter
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1]).getName()), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     }
 
                      MIPSInstruction mipsSLL = new MIPSInstruction(MIPSInstruction.OpCode.SLL, new MIPSOperand[] {
                              new MIPSRegisterOperand(-1, "$virArrayLocation", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[2]).getName()), newConstantOp("2")
@@ -1455,11 +1541,23 @@ public class IRToMIPSTranslator {
 
                  //CASE x == variable, offset == immediate -> LW, x, offset * 4, (array_name)
                  if(iri.operands[2] instanceof IRConstantOperand) {
-                     int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
-                     MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
-                     });
-                     newInstructions.add(mipsILoadArrayBase);
+                     // If Local array variable
+                     // ADDI $a0, $fp, arrayToFPOffsetMap[arg]
+                     // If parameter
+                     // ADDI $a0, $vir, 0
+                     if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[1]).getName(), false)){
+                         int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     } else {
+                         //Parameter
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1]).getName()), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     }
 
                      int offset = Integer.parseInt(((IRConstantOperand)iri.operands[2]).getValueString()) * 4;
                      MIPSInstruction mipsI = new MIPSInstruction(MIPSInstruction.OpCode.LW, new MIPSOperand[] {
@@ -1469,11 +1567,23 @@ public class IRToMIPSTranslator {
                  }
                  //CASE x == variable, offset == variable -> SLL, virArrayLocation, offset, 2;  ADD, virArrayLocation, virArrayLocation, fpOffset;  LW, x, 0(virArrayLocation)
                  else {
-                     int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
-                     MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
-                             new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
-                     });
-                     newInstructions.add(mipsILoadArrayBase);
+                     // If Local array variable
+                     // ADDI $a0, $fp, arrayToFPOffsetMap[arg]
+                     // If parameter
+                     // ADDI $a0, $vir, 0
+                     if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[1]).getName(), false)){
+                         int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1]).getName());
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     } else {
+                         //Parameter
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1]).getName()), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     }
 
                      MIPSInstruction mipsSLL = new MIPSInstruction(MIPSInstruction.OpCode.SLL, new MIPSOperand[] {
                              new MIPSRegisterOperand(-1, "$virArrayLocation", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[2]).getName()), newConstantOp("2")
