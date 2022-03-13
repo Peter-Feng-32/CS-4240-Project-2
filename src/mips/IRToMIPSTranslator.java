@@ -82,14 +82,14 @@ public class IRToMIPSTranslator {
             HashMap<String, Integer> arrayToFPOffsetMap = new HashMap<>();
             HashMap<String, Boolean> isParameter = new HashMap<>();
 
-            System.out.println(func.name);
+//            System.out.println(func.name);
 
             //Assign a virtual register for every parameter.
             mipsSub.parameters = new ArrayList<MIPSRegisterOperand>();
             for (IRVariableOperand ivo : func.parameters) {
                 mipsSub.parameters.add(new MIPSRegisterOperand(regCount, ivo.getName(), true));
                 isParameter.put(ivo.getName(), true);
-                System.out.println(ivo.getName() + " " + regCount);
+//                System.out.println(ivo.getName() + " " + regCount);
                 varToRegMap.put(ivo.getName(), regCount);
                 regCount++;
             }
@@ -99,7 +99,7 @@ public class IRToMIPSTranslator {
             //Add a virtual register for every variable
             for(IRVariableOperand ivo: func.variables) {
                 if(!isParameter.getOrDefault(ivo.getName(), false)){
-                    System.out.println(ivo.getName() + " " + regCount);
+//                    System.out.println(ivo.getName() + " " + regCount);
                     varToRegMap.put(ivo.getName(), regCount);
                     regCount++;
                 }
