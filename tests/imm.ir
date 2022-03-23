@@ -1,0 +1,141 @@
+#start_function
+int foo(int a, int b, int c, int d, int e, int f):
+int-list:
+float-list:
+call, puti, a
+call, putc, 10
+add, a, a, b
+add, a, a, c
+add, d, a, d
+add, b, d, e
+add, e, b, f
+call, puti, e
+call, putc, 10
+return, b
+#end_function
+
+#start_function
+void main():
+int-list: a, b, c, d, e, arr[33000]
+float-list:
+assign, a, 1000000000
+call, puti, a
+call, putc, 10
+assign, b, 1000000001
+call, puti, b
+call, putc, 10
+
+add, c, a, b
+call, puti, c
+call, putc, 10
+add, d, a, 1000000002
+call, puti, d
+call, putc, 10
+add, e, 1000000002, a
+call, puti, e
+call, putc, 10
+
+assign, a, 1000000000
+assign, b, 1000000001
+sub, c, a, b
+call, puti, c
+call, putc, 10
+sub, d, a, 1000000002
+call, puti, d
+call, putc, 10
+sub, e, 1000000002, a
+call, puti, e
+call, putc, 10
+
+assign, a, 40000
+assign, b, 45000
+mult, c, a, b
+call, puti, c
+call, putc, 10
+mult, d, a, 40000
+call, puti, d
+call, putc, 10
+mult, e, 40000, a
+call, puti, e
+call, putc, 10
+
+assign, a, 363000
+assign, b, 11
+div, c, a, b
+call, puti, c
+call, putc, 10
+div, d, a, 363000
+call, puti, d
+call, putc, 10
+div, e, 363000, a
+call, puti, e
+call, putc, 10
+
+and, c, a, b
+call, puti, c
+call, putc, 10
+and, d, a, 1000000002
+call, puti, d
+call, putc, 10
+and, e, 1000000002, a
+call, puti, e
+call, putc, 10
+
+or, c, a, b
+call, puti, c
+call, putc, 10
+or, d, a, 1000000002
+call, puti, d
+call, putc, 10
+or, e, 1000000002, a
+call, puti, e
+call, putc, 10
+
+assign, a, 1000000000
+assign, b, 1000000001
+brgt, failure, a, b
+call, puti, 0
+call, putc, 10
+
+breq, failure, a, 1000000002
+call, puti, 1
+call, putc, 10
+
+brneq, failure, 1000000000, a
+call, puti, 2
+call, putc, 10
+
+callr, d, foo, 100000000, 100000001, 100000002, 100000003, 100000004, 100000005
+call, puti, d
+call, putc, 10
+
+assign, arr, 33000, 43000
+assign, arr, 1000, 53000
+assign, a, 0
+
+arr_assign1_begin:
+breq, arr_assign1_end, a, 1000
+array_load, b, arr, a
+brneq, failure, b, 53000
+add, a, a, 1
+goto, arr_assign1_begin
+arr_assign1_end:
+
+arr_assign2_begin:
+breq, arr_assign2_end, a, 33000
+array_load, b, arr, a
+brneq, failure, b, 43000
+add, a, a, 1
+goto, arr_assign2_begin
+arr_assign2_end:
+
+call, puti, 3
+call, putc, 10
+
+array_store, 123456, arr, 31000
+array_load, c, arr, 31000
+call, puti, c
+call, putc, 10
+
+failure:
+#end_function
