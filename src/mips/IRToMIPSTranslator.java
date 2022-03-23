@@ -18,6 +18,8 @@ import ir.operand.*;
 
 public class IRToMIPSTranslator {
 
+    static int tempLabelCounter = 0;
+
     public static MIPSProgram translate(IRProgram irp) throws Exception {
         MIPSProgram mipsProgram = new MIPSProgram();
         int regCount = 0;
@@ -274,9 +276,8 @@ public class IRToMIPSTranslator {
                  //Array Assign - Assign x, size, value -> Loop size times, assigning value to all array element in x
                  //Get array pointer by assigning array address to a virtual register?
                  //Use the same $vir_array for all array ops to increase efficiency for code?
-                 else if (iri.operands.length == 3) {
+                 else if (iri.operands.length == 3 && iri.operands[1] instanceof IRConstantOperand) {
                      int arraySize = Integer.parseInt(((IRConstantOperand)iri.operands[1]).getValueString());
-
 
                      //Load array pointer into virtual register
                      //If the array is a local variable use fp offset table
@@ -320,7 +321,135 @@ public class IRToMIPSTranslator {
                              newInstructions.add(mipsIArrayAssign);
                          }
                      }
-                 } else {
+                 }
+                 else if (iri.operands[1] instanceof IRVariableOperand) {
+
+                     if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[0]).getName(), false)){
+                         int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[0]).getName());
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newNonVirRegOp("$fp"), newConstantOp("" + fpOffset)
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     } else {
+                         MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBase", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[0]).getName()), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsILoadArrayBase);
+                     }
+
+                     //If we have a constant value, we have to put it in a register
+                     if (iri.operands[2] instanceof IRConstantOperand) {
+                         MIPSInstruction mipsILoadValue = new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[]{
+                                 //LI $virArrayValue, constant
+                                 new MIPSRegisterOperand(-1, "$virArrayValue", true), newConstantOp(((IRConstantOperand) iri.operands[2]).getValueString())
+                         });
+                         newInstructions.add(mipsILoadValue);
+                         //Load the array size into a temp variable, and decrease that temp variable until it reaches 0 in a loop of assigns.
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[] {
+                                 new MIPSRegisterOperand(-1, "$virArrayAssignTempCounter", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1]).getName()), newConstantOp("0")
+                         }));
+                         //Start a running offset for the array.
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[] {
+                                 new MIPSRegisterOperand(-1, "$virArrayAssignRunningOffset", true), newConstantOp("" + 0)
+                         }));
+                         //To loop an indefinite amount of times setting the array, create a new unique label
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LABEL, new MIPSOperand[]{new MIPSLabelOperand("" +"ARRAY_ASSIGN_START_" + (tempLabelCounter) )}));
+
+                         //Branch to end if temp is equal to zero.
+                         MIPSInstruction mipsIBranchTempCreator = new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[] {
+                                 new MIPSRegisterOperand(-1, "$virBranchTemp", true), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsIBranchTempCreator);
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.BEQ, new MIPSOperand[]{
+                                 new MIPSLabelOperand("" + "ARRAY_ASSIGN_END_" + (tempLabelCounter)), new MIPSRegisterOperand(-1, "$virArrayAssignTempCounter", true), new MIPSRegisterOperand(-1, "$virBranchTemp", true)
+                         }));
+
+                         //Calculate base+offset
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADD, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBasePlusOffset", true), new MIPSRegisterOperand(-1, "$virArrayBase", true), new MIPSRegisterOperand(-1, "$virArrayAssignRunningOffset", true)
+                         }));
+
+                         //SW virArrayValue, 0, virArrayBase+offset
+                         MIPSInstruction mipsIArrayAssign = new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[] {
+                                 new MIPSRegisterOperand(-1, "$virArrayValue", true), newConstantOp("" + 0), new MIPSRegisterOperand(-1, "$virArrayBasePlusOffset", true)
+                         });
+                         newInstructions.add(mipsIArrayAssign);
+
+
+
+                         //Subtract 1 from the temp counter
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayAssignTempCounter", true), new MIPSRegisterOperand(-1, "$virArrayAssignTempCounter", true), newConstantOp(""+ -1)
+                         }));
+                         //Add 4 to the running offset.
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayAssignRunningOffset", true), new MIPSRegisterOperand(-1, "$virArrayAssignRunningOffset", true), newConstantOp(""+ 4)
+                         }));
+                         //Jump back to start of loop.
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
+                             new MIPSLabelOperand("" +"ARRAY_ASSIGN_START_" + (tempLabelCounter))
+                         }));
+
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LABEL, new MIPSOperand[]{new MIPSLabelOperand("" + "ARRAY_ASSIGN_END_" + (tempLabelCounter) )}));
+
+
+
+                     } else { //Otherwise, if we are storing a register's value, we can just use it
+
+                         //Load the array size into a temp variable, and decrease that temp variable until it reaches 0 in a loop of assigns.
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[] {
+                                 new MIPSRegisterOperand(-1, "$virArrayAssignTempCounter", true), newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[1]).getName()), newConstantOp("0")
+                         }));
+                         //Start a running offset for the array.
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[] {
+                                 new MIPSRegisterOperand(-1, "$virArrayAssignRunningOffset", true), newConstantOp("" + 0)
+                         }));
+                         //To loop an indefinite amount of times setting the array, create a new unique label
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LABEL, new MIPSOperand[]{new MIPSLabelOperand("" +"ARRAY_ASSIGN_START_" + (tempLabelCounter) )}));
+
+                         //Branch to end if temp is equal to zero.
+                         MIPSInstruction mipsIBranchTempCreator = new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[] {
+                                 new MIPSRegisterOperand(-1, "$virBranchTemp", true), newConstantOp("0")
+                         });
+                         newInstructions.add(mipsIBranchTempCreator);
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.BEQ, new MIPSOperand[]{
+                                 new MIPSLabelOperand("" + "ARRAY_ASSIGN_END_" + (tempLabelCounter)), new MIPSRegisterOperand(-1, "$virArrayAssignTempCounter", true), new MIPSRegisterOperand(-1, "$virBranchTemp", true)
+                         }));
+
+                         //Calculate base+offset
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADD, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayBasePlusOffset", true), new MIPSRegisterOperand(-1, "$virArrayBase", true), new MIPSRegisterOperand(-1, "$virArrayAssignRunningOffset", true)
+                         }));
+
+                         //SW virArrayValue, 0, virArrayBase+Offset
+                         MIPSInstruction mipsIArrayAssign = new MIPSInstruction(MIPSInstruction.OpCode.SW, new MIPSOperand[] {
+                                 newVirRegOp(varToRegMap, ((IRVariableOperand)iri.operands[2]).getName()), newConstantOp("" + 0), new MIPSRegisterOperand(-1, "$virArrayBasePlusOffset", true)
+                         });
+                         newInstructions.add(mipsIArrayAssign);
+
+
+
+                         //Subtract 1 from the temp counter
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayAssignTempCounter", true), new MIPSRegisterOperand(-1, "$virArrayAssignTempCounter", true), newConstantOp(""+ -1)
+                         }));
+                         //Add 4 to the running offset.
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.ADDI, new MIPSOperand[]{
+                                 new MIPSRegisterOperand(-1, "$virArrayAssignRunningOffset", true), new MIPSRegisterOperand(-1, "$virArrayAssignRunningOffset", true), newConstantOp(""+ 4)
+                         }));
+                         //Jump back to start of loop.
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.J, new MIPSOperand[]{
+                                 new MIPSLabelOperand("" +"ARRAY_ASSIGN_START_" + (tempLabelCounter))
+                         }));
+
+                         newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LABEL, new MIPSOperand[]{new MIPSLabelOperand("" + "ARRAY_ASSIGN_END_" + (tempLabelCounter) )}));
+
+
+                     }
+
+                     tempLabelCounter++;
+                 }
+                 else {
                      throw new Exception("TIGER-IR ASSIGN has more than 3 operands!");
                  }
 
