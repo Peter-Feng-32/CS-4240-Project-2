@@ -1,0 +1,83 @@
+#start_function
+void main():
+int-list: a, b, c, d, e, f
+float-list:
+    assign, a, 1
+    assign, b, 0
+    assign, c, 0
+    assign, d, 0
+    assign, e, 0
+    assign, f, 0
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    add, b, b, a
+    add, c, c, b
+    add, d, d, c
+    add, e, e, d
+    add, f, f, e
+    call, puti, a
+    call, putc, 10
+    call, puti, b
+    call, putc, 10
+    call, puti, c
+    call, putc, 10
+    call, puti, d
+    call, putc, 10
+    call, puti, e
+    call, putc, 10
+    call, puti, f
+    call, putc, 10
+#end_function
