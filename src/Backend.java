@@ -26,7 +26,9 @@ public class Backend {
         }
         else
         {
-            throw new Exception("Invalid allocator");
+            MIPSPrinter.print(args[2], mips);
+            return;
+            //throw new Exception("Invalid allocator");
         }
         MIPSPrinter.print(args[2], alloc);
 

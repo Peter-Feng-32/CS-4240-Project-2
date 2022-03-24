@@ -42,3 +42,27 @@ And you can redirect the output to a file with this command:
 ```bash
 java -cp ./build IRInterpreter example/example.ir < example/example.in > example.out
 ```
+
+
+1000000000
+1000000001
+2000000001
+2000000002
+2000000002
+-1
+-2
+2
+1800000000
+1600000000
+1600000000
+33000
+1
+1
+8
+34816
+34816
+363003
+1000328186
+1000328186
+0
+1
