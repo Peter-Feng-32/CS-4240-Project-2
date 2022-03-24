@@ -1274,12 +1274,12 @@ public class IRToMIPSTranslator {
                              // If parameter
                              // ADDI $a0, $vir, 0; SW $a0, spOffset, $sp
                              if(!isParameter.getOrDefault(((IRVariableOperand)iri.operands[1 + i]).getName(), false)){
-                                 int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[2 + i]).getName());
+                                 int fpOffset = arrayToFPOffsetMap.get(((IRVariableOperand)iri.operands[1 + i]).getName());
                                  newInstructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LI, new MIPSOperand[] {
                                          new MIPSRegisterOperand(-1, "$virFPOffset", true), newConstantOp(""+fpOffset)
                                  }));
                                  MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADD, new MIPSOperand[]{
-                                         new MIPSRegisterOperand(-1, "a0", true), newNonVirRegOp("$fp"), new MIPSRegisterOperand(-1, "$virFPOffset", true)
+                                         new MIPSRegisterOperand(-1, "$a0", true), newNonVirRegOp("$fp"), new MIPSRegisterOperand(-1, "$virFPOffset", true)
                                  });
                                  newInstructions.add(mipsILoadArrayBase);
                              } else {
@@ -1469,7 +1469,7 @@ public class IRToMIPSTranslator {
                                          new MIPSRegisterOperand(-1, "$virFPOffset", true), newConstantOp(""+fpOffset)
                                  }));
                                  MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADD, new MIPSOperand[]{
-                                         new MIPSRegisterOperand(-1, "a0", true), newNonVirRegOp("$fp"), new MIPSRegisterOperand(-1, "$virFPOffset", true)
+                                         new MIPSRegisterOperand(-1, "$a0", true), newNonVirRegOp("$fp"), new MIPSRegisterOperand(-1, "$virFPOffset", true)
                                  });
                                  newInstructions.add(mipsILoadArrayBase);
                              } else {
