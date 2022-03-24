@@ -102507,42 +102507,48 @@ sw $t0, 0($sp)
 lw $t1, 0($sp) 
 add $t0 ,$t1 ,$fp  
 sw $t0, 4($sp) 
-lw $t0, 0($virParamBase) 
+lw $t2, 4($sp) 
+lw $t0, 0($t2) 
 sw $t0, 8($sp) 
 li $t0 ,20  
 sw $t0, 0($sp) 
 lw $t1, 0($sp) 
 add $t0 ,$t1 ,$fp  
 sw $t0, 4($sp) 
-lw $t0, 0($virParamBase) 
+lw $t2, 4($sp) 
+lw $t0, 0($t2) 
 sw $t0, 12($sp) 
 li $t0 ,16  
 sw $t0, 0($sp) 
 lw $t1, 0($sp) 
 add $t0 ,$t1 ,$fp  
 sw $t0, 4($sp) 
-lw $t0, 0($virParamBase) 
+lw $t2, 4($sp) 
+lw $t0, 0($t2) 
 sw $t0, 16($sp) 
 li $t0 ,12  
 sw $t0, 0($sp) 
 lw $t1, 0($sp) 
 add $t0 ,$t1 ,$fp  
 sw $t0, 4($sp) 
-lw $t0, 0($virParamBase) 
+lw $t2, 4($sp) 
+lw $t0, 0($t2) 
 sw $t0, 20($sp) 
 li $t0 ,8  
 sw $t0, 0($sp) 
 lw $t1, 0($sp) 
 add $t0 ,$t1 ,$fp  
 sw $t0, 4($sp) 
-lw $t0, 0($virParamBase) 
+lw $t2, 4($sp) 
+lw $t0, 0($t2) 
 sw $t0, 24($sp) 
 li $t0 ,4  
 sw $t0, 0($sp) 
 lw $t1, 0($sp) 
 add $t0 ,$t1 ,$fp  
 sw $t0, 4($sp) 
-lw $t0, 0($virParamBase) 
+lw $t2, 4($sp) 
+lw $t0, 0($t2) 
 sw $t0, 28($sp) 
 li $v0 ,1  
 lw $t1, 8($sp) 

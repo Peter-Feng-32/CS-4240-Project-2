@@ -185,7 +185,7 @@ public class IRToMIPSTranslator {
                         new MIPSRegisterOperand(-1, "$virParamBase", true), new MIPSRegisterOperand(-1, "$virFPOffset", true), new MIPSRegisterOperand(-1, "$fp", false)
                 }));
                 mipsSub.instructions.add(new MIPSInstruction(MIPSInstruction.OpCode.LW,
-                        new MIPSOperand[]{new MIPSRegisterOperand(vRegNum, "$vir" + vRegNum, true), new MIPSConstantOperand("" + 0, 0), new MIPSRegisterOperand(-1, "$virParamBase", false)}));
+                        new MIPSOperand[]{new MIPSRegisterOperand(vRegNum, "$vir" + vRegNum, true), new MIPSConstantOperand("" + 0, 0), new MIPSRegisterOperand(-1, "$virParamBase", true)}));
             }
 
             //Do Instruction Translation
