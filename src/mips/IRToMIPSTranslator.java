@@ -1279,7 +1279,7 @@ public class IRToMIPSTranslator {
                                          new MIPSRegisterOperand(-1, "$virFPOffset", true), newConstantOp(""+fpOffset)
                                  }));
                                  MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADD, new MIPSOperand[]{
-                                         new MIPSRegisterOperand(-1, "$a0", true), newNonVirRegOp("$fp"), new MIPSRegisterOperand(-1, "$virFPOffset", true)
+                                         new MIPSRegisterOperand(-1, "$a0", false), newNonVirRegOp("$fp"), new MIPSRegisterOperand(-1, "$virFPOffset", true)
                                  });
                                  newInstructions.add(mipsILoadArrayBase);
                              } else {
@@ -1469,7 +1469,7 @@ public class IRToMIPSTranslator {
                                          new MIPSRegisterOperand(-1, "$virFPOffset", true), newConstantOp(""+fpOffset)
                                  }));
                                  MIPSInstruction mipsILoadArrayBase = new MIPSInstruction(MIPSInstruction.OpCode.ADD, new MIPSOperand[]{
-                                         new MIPSRegisterOperand(-1, "$a0", true), newNonVirRegOp("$fp"), new MIPSRegisterOperand(-1, "$virFPOffset", true)
+                                         new MIPSRegisterOperand(-1, "$a0", false), newNonVirRegOp("$fp"), new MIPSRegisterOperand(-1, "$virFPOffset", true)
                                  });
                                  newInstructions.add(mipsILoadArrayBase);
                              } else {
